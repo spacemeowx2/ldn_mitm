@@ -21,7 +21,6 @@
 
 #include "mitm_query_service.hpp"
 #include "mitm_server.hpp"
-#include "fsmitm_worker.hpp"
 
 #include "debug.hpp"
 

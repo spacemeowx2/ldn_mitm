@@ -25,12 +25,9 @@
 #include "sm_mitm.h"
 
 #include "mitm_server.hpp"
-#include "fsmitm_service.hpp"
-#include "fsmitm_worker.hpp"
+#include "ldnmitm_service.hpp"
 
 #include "mitm_query_service.hpp"
-
-#include "fsmitm_utils.hpp"
 
 extern "C" {
     extern u32 __start__;
@@ -72,11 +69,6 @@ void __appInit(void) {
         fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
     }
     
-    rc = fsInitialize();
-    if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
-    }
-    
     rc = splInitialize();
     if (R_FAILED(rc))  {
         fatalSimple(0xCAFE << 4 | 3);
@@ -99,42 +91,24 @@ void __appInit(void) {
 
 void __appExit(void) {
     /* Cleanup services. */
-    fsExit();
     smMitMExit();
     smExit();
 }
 
 int main(int argc, char **argv)
 {
-    Thread worker_thread = {0};
-    Thread sd_initializer_thread = {0};
     consoleDebugInit(debugDevice_SVC);
-    
     consoleDebugInit(debugDevice_SVC);
-    
-    if (R_FAILED(threadCreate(&worker_thread, &FsMitMWorker::Main, NULL, 0x20000, 45, 0))) {
-        /* TODO: Panic. */
-    }
-    if (R_FAILED(threadStart(&worker_thread))) {
-        /* TODO: Panic. */
-    }
-    
-    if (R_FAILED(threadCreate(&sd_initializer_thread, &Utils::InitializeSdThreadFunc, NULL, 0x4000, 0x15, 0))) {
-        /* TODO: Panic. */
-    }
-    if (R_FAILED(threadStart(&sd_initializer_thread))) {
-        /* TODO: Panic. */
-    }
-    
+
     /* TODO: What's a good timeout value to use here? */
     auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
     //auto server_manager = std::make_unique<WaitableManager>(U64_MAX);
         
-    /* Create fsp-srv mitm. */
-    ISession<MitMQueryService<FsMitMService>> *fs_query_srv = NULL;
-    MitMServer<FsMitMService> *fs_srv = new MitMServer<FsMitMService>(&fs_query_srv, "fsp-srv", 61);
-    server_manager->add_waitable(fs_srv);
-    server_manager->add_waitable(fs_query_srv);
+    /* Create ldn:s mitm. */
+    ISession<MitMQueryService<LdnMitMService>> *ldn_query_srv = NULL;
+    MitMServer<LdnMitMService> *ldn_srv = new MitMServer<LdnMitMService>(&ldn_query_srv, "ldn:s", 61);
+    server_manager->add_waitable(ldn_srv);
+    server_manager->add_waitable(ldn_query_srv);
             
     /* Loop forever, servicing our services. */
     server_manager->process();
