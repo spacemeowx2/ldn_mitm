@@ -57,6 +57,7 @@ void __libnx_initheap(void) {
 }
 
 void __appInit(void) {
+    LogStr("__appInit");
     Result rc;
     
     rc = smInitialize();
@@ -86,24 +87,26 @@ void __appInit(void) {
         fatalSimple(0xCAFE << 4 | 0xFF);
     }
     
+    LogStr("__appInit done");
     //splExit();
 }
 
 void __appExit(void) {
+    LogStr("__appExit");
     /* Cleanup services. */
     smMitMExit();
     smExit();
+    LogStr("__appExit done");
 }
 
 int main(int argc, char **argv)
 {
     consoleDebugInit(debugDevice_SVC);
-    consoleDebugInit(debugDevice_SVC);
 
     /* TODO: What's a good timeout value to use here? */
     auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
     //auto server_manager = std::make_unique<WaitableManager>(U64_MAX);
-        
+
     /* Create ldn:s mitm. */
     ISession<MitMQueryService<LdnMitMService>> *ldn_query_srv = NULL;
     MitMServer<LdnMitMService> *ldn_srv = new MitMServer<LdnMitMService>(&ldn_query_srv, "ldn:s", 61);

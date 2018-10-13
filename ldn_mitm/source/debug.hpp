@@ -18,3 +18,4 @@
 
 void Reboot();
 void Log(const void *data, int size);
+void LogStr(const char *str);

@@ -28,3 +28,9 @@ void Log(const void *data, int size) {
     (void)(size);
     /* ... */
 }
+
+void LogStr(const char *str) {
+    FILE *file = fopen("sdmc:/space.log", "a+");
+    fwrite(str, 1, strlen(str), file);
+    fclose(file);
+}

@@ -2,21 +2,20 @@
 #include <switch.h>
 #include "imitmserviceobject.hpp"
 #include "fsmitm_utils.hpp"
+#include "ldn_icommunication.hpp"
 
-enum class FspSrvCmd {
-    SetCurrentProcess = 1,
-    OpenDataStorageByCurrentProcess = 200,
-    OpenDataStorageByDataId = 202,
+enum class LdnSrvCmd {
+    CreateUserLocalCommunicationService = 0,
 };
 
 class LdnMitMService : public IMitMServiceObject {      
     private:
-        bool has_initialized = false;
-        u64 init_pid = 0;
         // std::shared_ptr<IStorageInterface> romfs_storage;
+        std::shared_ptr<ICommunicationInterface> communication;
     public:
         LdnMitMService(Service *s) : IMitMServiceObject(s) {
             /* ... */
+            communication = std::make_shared<ICommunicationInterface>();
         }
         
         static bool should_mitm(u64 pid, u64 tid) {
@@ -30,9 +29,7 @@ class LdnMitMService : public IMitMServiceObject {
         }
         
         void clone_to(void *o) override {
-            LdnMitMService *other = (LdnMitMService *)o;
-            other->has_initialized = has_initialized;
-            other->init_pid = init_pid;
+            // LdnMitMService *other = (LdnMitMService *)o;
         }
         
         virtual Result dispatch(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd_id, u8 *pointer_buffer, size_t pointer_buffer_size);
@@ -41,6 +38,7 @@ class LdnMitMService : public IMitMServiceObject {
     
     protected:
         /* Overridden commands. */
+        std::tuple<Result, OutSession<ICommunicationInterface>> create_user_local_communication_service();
         // std::tuple<Result, OutSession<IStorageInterface>> open_data_storage_by_current_process();
         // std::tuple<Result, OutSession<IStorageInterface>> open_data_storage_by_data_id(u64 storage_id, u64 data_id);
 };
