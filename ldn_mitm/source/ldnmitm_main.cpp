@@ -57,7 +57,6 @@ void __libnx_initheap(void) {
 }
 
 void __appInit(void) {
-    LogStr("__appInit");
     Result rc;
     
     rc = smInitialize();
@@ -70,6 +69,16 @@ void __appInit(void) {
         fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
     }
     
+    rc = fsInitialize();
+    if (R_FAILED(rc)) {
+        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
+    }
+    
+    rc = fsdevMountSdmc();
+    if (R_FAILED(rc)) {
+        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
+    }
+
     rc = splInitialize();
     if (R_FAILED(rc))  {
         fatalSimple(0xCAFE << 4 | 3);
@@ -94,9 +103,11 @@ void __appInit(void) {
 void __appExit(void) {
     LogStr("__appExit");
     /* Cleanup services. */
+    splExit();
+    fsdevUnmountAll();
+    fsExit();
     smMitMExit();
     smExit();
-    LogStr("__appExit done");
 }
 
 int main(int argc, char **argv)
