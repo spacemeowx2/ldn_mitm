@@ -84,24 +84,24 @@ void __appInit(void) {
         fatalSimple(0xCAFE << 4 | 3);
     }
     
-    /* Check for exosphere API compatibility. */
-    u64 exosphere_cfg;
-    if (R_SUCCEEDED(splGetConfig((SplConfigItem)65000, &exosphere_cfg))) {
-        /* MitM requires Atmosphere API 0.1. */
-        u16 api_version = (exosphere_cfg >> 16) & 0xFFFF;
-        if (api_version < 0x0001) {
-            fatalSimple(0xCAFE << 4 | 0xFE);
-        }
-    } else {
-        fatalSimple(0xCAFE << 4 | 0xFF);
-    }
+    // /* Check for exosphere API compatibility. */
+    // u64 exosphere_cfg;
+    // if (R_SUCCEEDED(splGetConfig((SplConfigItem)65000, &exosphere_cfg))) {
+    //     /* MitM requires Atmosphere API 0.1. */
+    //     u16 api_version = (exosphere_cfg >> 16) & 0xFFFF;
+    //     if (api_version < 0x0001) {
+    //         fatalSimple(0xCAFE << 4 | 0xFE);
+    //     }
+    // } else {
+    //     fatalSimple(0xCAFE << 4 | 0xFF);
+    // }
     
     LogStr("__appInit done");
     //splExit();
 }
 
 void __appExit(void) {
-    LogStr("__appExit");
+    // LogStr("__appExit");
     /* Cleanup services. */
     splExit();
     fsdevUnmountAll();
@@ -115,17 +115,17 @@ int main(int argc, char **argv)
     consoleDebugInit(debugDevice_SVC);
 
     /* TODO: What's a good timeout value to use here? */
-    auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
-    //auto server_manager = std::make_unique<WaitableManager>(U64_MAX);
+    // auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
+    // //auto server_manager = std::make_unique<WaitableManager>(U64_MAX);
 
-    /* Create ldn:s mitm. */
-    ISession<MitMQueryService<LdnMitMService>> *ldn_query_srv = NULL;
-    MitMServer<LdnMitMService> *ldn_srv = new MitMServer<LdnMitMService>(&ldn_query_srv, "ldn:s", 61);
-    server_manager->add_waitable(ldn_srv);
-    server_manager->add_waitable(ldn_query_srv);
+    // /* Create ldn:s mitm. */
+    // ISession<MitMQueryService<LdnMitMService>> *ldn_query_srv = NULL;
+    // MitMServer<LdnMitMService> *ldn_srv = new MitMServer<LdnMitMService>(&ldn_query_srv, "ldn:s", 61);
+    // server_manager->add_waitable(ldn_srv);
+    // server_manager->add_waitable(ldn_query_srv);
             
-    /* Loop forever, servicing our services. */
-    server_manager->process();
+    // /* Loop forever, servicing our services. */
+    // server_manager->process();
 
     return 0;
 }
