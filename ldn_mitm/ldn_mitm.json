@@ -1,6 +1,6 @@
 {
     "name" : "ldn.mitm",
-    "title_id" : "0x010041544D530001",
+    "title_id" : "0x4200000000000010",
 	"main_thread_stack_size" : "0x20000",
 	"main_thread_priority":	43,
 	"default_cpu_id":	3,
