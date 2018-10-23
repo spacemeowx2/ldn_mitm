@@ -33,19 +33,25 @@ class ICommunicationInterface : public IServiceObject {
     private:
     public:
         ICommunicationInterface() {
+            LogStr("ICommunicationInterface\n");
             /* ... */
         };
         
         ICommunicationInterface *clone() override {
+            LogStr("ICommunicationInterface::clone\n");
             return new ICommunicationInterface();
         }
         
         ~ICommunicationInterface() {
+            LogStr("~ICommunicationInterface\n");
             /* ... */
         };
         
         Result dispatch(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd_id, u8 *pointer_buffer, size_t pointer_buffer_size) final {
             Result rc = 0xF601;
+            char buf[128];
+            sprintf(buf, "ICommunicationInterface::dispatch cmd_id: %" PRIu64 "\n", cmd_id);
+            LogStr(buf);
             return rc;
         };
         

@@ -22,16 +22,18 @@
 
 Result LdnMitMService::dispatch(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd_id, u8 *pointer_buffer, size_t pointer_buffer_size) {
     char buf[128];
-    sprintf(buf, "LdnMitMService::dispatch cmd_id: %" PRIu64 "\n", cmd_id);
+    sprintf(buf, "LdnMitMService::dispatch cmd_id: %" PRIu64 " is domain message %d\n", cmd_id, r.IsDomainRequest);
     LogStr(buf);
     Result rc = 0xF601;
     switch (static_cast<LdnSrvCmd>(cmd_id)) {
-        case LdnSrvCmd::CreateUserLocalCommunicationService:
-            rc = WrapIpcCommandImpl<&LdnMitMService::create_user_local_communication_service>(this, r, out_c, pointer_buffer, pointer_buffer_size);
-            break;
+        // case LdnSrvCmd::CreateUserLocalCommunicationService:
+        //     rc = WrapIpcCommandImpl<&LdnMitMService::create_user_local_communication_service>(this, r, out_c, pointer_buffer, pointer_buffer_size);
+        //     break;
         default:
             break;
     }
+    sprintf(buf, "LdnMitMService::dispatch rc: %u\n", rc);
+    LogStr(buf);
     return rc;
 }
 
