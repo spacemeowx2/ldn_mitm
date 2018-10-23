@@ -19,20 +19,43 @@
 #include <cstring>
 #include "debug.hpp"
 
+const size_t TlsBackupSize = 0x100;
+
 void Reboot() {
     /* ... */
+    LogStr("Reboot\n");
 }
 
 void Log(const void *data, int size) {
     (void)(data);
     (void)(size);
     /* ... */
+    u8 backup[TlsBackupSize];
+    memcpy(backup, armGetTls(), TlsBackupSize);
+    const u8 *dat = (const u8 *)data;
+    char buf[128];
+    sprintf(buf, "Bin Log: %d\n", size);
+    LogStr(buf);
+    for (int i = 0; i < size; i += 16) {
+        int s = std::min(size - i, 16);
+        buf[0] = 0;
+        for (int j = 0; j < s; j++) {
+            sprintf(buf + strlen(buf), "%02x", dat[i + j]);
+        }
+        sprintf(buf + strlen(buf), "\n");
+        LogStr(buf);
+    }
+    memcpy(armGetTls(), backup, TlsBackupSize);
 }
 
 void LogStr(const char *str) {
+    (void)(str);
+    u8 backup[TlsBackupSize];
+    memcpy(backup, armGetTls(), TlsBackupSize);
     FILE *file = fopen("sdmc:/space.log", "ab+");
     fwrite(str, 1, strlen(str), file);
     fclose(file);
+    memcpy(armGetTls(), backup, TlsBackupSize);
 }
 
 
