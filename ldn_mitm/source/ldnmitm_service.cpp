@@ -21,6 +21,9 @@
 #include "debug.hpp"
 
 Result LdnMitMService::dispatch(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd_id, u8 *pointer_buffer, size_t pointer_buffer_size) {
+    char buf[128];
+    sprintf(buf, "LdnMitMService::dispatch cmd_id: %" PRIu64 "\n", cmd_id);
+    LogStr(buf);
     Result rc = 0xF601;
     switch (static_cast<LdnSrvCmd>(cmd_id)) {
         case LdnSrvCmd::CreateUserLocalCommunicationService:

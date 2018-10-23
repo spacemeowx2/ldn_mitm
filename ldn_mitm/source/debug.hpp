@@ -15,7 +15,10 @@
  */
  
 #pragma once
+#include <switch.h>
+#include <inttypes.h>
 
 void Reboot();
 void Log(const void *data, int size);
 void LogStr(const char *str);
+void fatalLater(Result err);

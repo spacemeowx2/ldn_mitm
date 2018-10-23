@@ -2,6 +2,7 @@
 #include <switch.h>
 #include "imitmserviceobject.hpp"
 #include "ldn_icommunication.hpp"
+#include "debug.hpp"
 
 enum class LdnSrvCmd {
     CreateUserLocalCommunicationService = 0,
@@ -13,12 +14,16 @@ class LdnMitMService : public IMitMServiceObject {
         std::shared_ptr<ICommunicationInterface> communication;
     public:
         LdnMitMService(Service *s) : IMitMServiceObject(s) {
+            LogStr("LdnMitMService\n");
             /* ... */
             communication = std::make_shared<ICommunicationInterface>();
         }
         
         static bool should_mitm(u64 pid, u64 tid) {
-            return false;
+            char buf[128];
+            sprintf(buf, "should_mitm pid: %" PRIu64 " tid: %" PRIu64 "\n", pid, tid);
+            LogStr(buf);
+            return true;
         }
         
         LdnMitMService *clone() override {

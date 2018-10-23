@@ -29,12 +29,14 @@
 
 #include "mitm_query_service.hpp"
 
+#define TITLE_ID 0x4200000000000010
+
 extern "C" {
     extern u32 __start__;
 
     u32 __nx_applet_type = AppletType_None;
 
-    #define INNER_HEAP_SIZE 0x1000000
+    #define INNER_HEAP_SIZE 0x260000
     size_t nx_inner_heap_size = INNER_HEAP_SIZE;
     char   nx_inner_heap[INNER_HEAP_SIZE];
     
@@ -56,33 +58,53 @@ void __libnx_initheap(void) {
 	fake_heap_end   = (char*)addr + size;
 }
 
+void registerFspLr()
+{
+    if (kernelAbove400())
+        return;
+
+    Result rc = fsprInitialize();
+    if (R_FAILED(rc))
+        fatalLater(rc);
+
+    u64 pid;
+    svcGetProcessId(&pid, CUR_PROCESS_HANDLE);
+
+    rc = fsprRegisterProgram(pid, TITLE_ID, FsStorageId_NandSystem, NULL, 0, NULL, 0);
+    if (R_FAILED(rc))
+        fatalLater(rc);
+    fsprExit();
+}
+
 void __appInit(void) {
     Result rc;
+    svcSleepThread(10000000000L);
     
     rc = smInitialize();
     if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
+        fatalLater(rc);
     }
     
     rc = smMitMInitialize();
     if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
+        fatalLater(rc);
     }
     
     rc = fsInitialize();
     if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
+        fatalLater(rc);
     }
+    registerFspLr();
     
     rc = fsdevMountSdmc();
     if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
+        fatalLater(rc);
     }
 
-    rc = splInitialize();
-    if (R_FAILED(rc))  {
-        fatalSimple(0xCAFE << 4 | 3);
-    }
+    // rc = splInitialize();
+    // if (R_FAILED(rc))  {
+    //     fatalSimple(0xCAFE << 4 | 3);
+    // }
     
     // /* Check for exosphere API compatibility. */
     // u64 exosphere_cfg;
@@ -96,14 +118,14 @@ void __appInit(void) {
     //     fatalSimple(0xCAFE << 4 | 0xFF);
     // }
     
-    LogStr("__appInit done");
+    LogStr("__appInit done\n");
     //splExit();
 }
 
 void __appExit(void) {
-    // LogStr("__appExit");
+    LogStr("__appExit\n");
     /* Cleanup services. */
-    splExit();
+    // splExit();
     fsdevUnmountAll();
     fsExit();
     smMitMExit();
@@ -113,19 +135,22 @@ void __appExit(void) {
 int main(int argc, char **argv)
 {
     consoleDebugInit(debugDevice_SVC);
+    LogStr("main\n");
 
     /* TODO: What's a good timeout value to use here? */
-    // auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
-    // //auto server_manager = std::make_unique<WaitableManager>(U64_MAX);
+    auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
+    //auto server_manager = std::make_unique<WaitableManager>(U64_MAX);
 
-    // /* Create ldn:s mitm. */
-    // ISession<MitMQueryService<LdnMitMService>> *ldn_query_srv = NULL;
-    // MitMServer<LdnMitMService> *ldn_srv = new MitMServer<LdnMitMService>(&ldn_query_srv, "ldn:s", 61);
-    // server_manager->add_waitable(ldn_srv);
-    // server_manager->add_waitable(ldn_query_srv);
-            
-    // /* Loop forever, servicing our services. */
-    // server_manager->process();
+    /* Create ldn:s mitm. */
+    ISession<MitMQueryService<LdnMitMService>> *ldn_query_srv = NULL;
+    MitMServer<LdnMitMService> *ldn_srv = new MitMServer<LdnMitMService>(&ldn_query_srv, "ldn:u", 61);
+    server_manager->add_waitable(ldn_srv);
+    server_manager->add_waitable(ldn_query_srv);
+
+    LogStr("main process\n");
+    /* Loop forever, servicing our services. */
+    server_manager->process();
+    LogStr("main process done\n");
 
     return 0;
 }
