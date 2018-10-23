@@ -26,6 +26,7 @@
 
 #include "mitm_server.hpp"
 #include "ldnmitm_service.hpp"
+#include "ldnmitm_worker.hpp"
 
 #include "mitm_query_service.hpp"
 
@@ -134,8 +135,19 @@ void __appExit(void) {
 
 int main(int argc, char **argv)
 {
+    Thread worker_thread = {0};
     consoleDebugInit(debugDevice_SVC);
     LogStr("main\n");
+
+
+    if (R_FAILED(threadCreate(&worker_thread, &LdnMitMWorker::Main, NULL, 0x20000, 45, 0))) {
+        /* TODO: Panic. */
+        LogStr("Error LdnMitMWorker create\n");
+    }
+    if (R_FAILED(threadStart(&worker_thread))) {
+        /* TODO: Panic. */
+        LogStr("Error LdnMitMWorker start\n");
+    }
 
     /* TODO: What's a good timeout value to use here? */
     auto server_manager = std::make_unique<MultiThreadedWaitableManager>(1, U64_MAX, 0x20000);
@@ -154,4 +166,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-

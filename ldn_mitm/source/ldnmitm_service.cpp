@@ -19,6 +19,7 @@
 
 #include "mitm_query_service.hpp"
 #include "debug.hpp"
+#include "ldnmitm_worker.hpp"
 
 Result LdnMitMService::dispatch(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd_id, u8 *pointer_buffer, size_t pointer_buffer_size) {
     char buf[128];
@@ -26,9 +27,9 @@ Result LdnMitMService::dispatch(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd_
     LogStr(buf);
     Result rc = 0xF601;
     switch (static_cast<LdnSrvCmd>(cmd_id)) {
-        // case LdnSrvCmd::CreateUserLocalCommunicationService:
-        //     rc = WrapIpcCommandImpl<&LdnMitMService::create_user_local_communication_service>(this, r, out_c, pointer_buffer, pointer_buffer_size);
-        //     break;
+        case LdnSrvCmd::CreateUserLocalCommunicationService: 
+            rc = WrapIpcCommandImpl<&LdnMitMService::create_user_local_communication_service>(this, r, out_c, pointer_buffer, pointer_buffer_size);
+            break;
         default:
             break;
     }
@@ -44,6 +45,9 @@ void LdnMitMService::postprocess(IpcParsedCommand &r, IpcCommand &out_c, u64 cmd
 std::tuple<Result, OutSession<ICommunicationInterface>> LdnMitMService::create_user_local_communication_service() {
     Result rc = 0;
     IPCSession<ICommunicationInterface> *out_session = new IPCSession<ICommunicationInterface>(communication);
+
+    LdnMitMWorker::AddWaitable(out_session);
+
     OutSession out_s = OutSession(out_session);
     return {rc, out_s};
 }

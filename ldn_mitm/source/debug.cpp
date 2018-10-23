@@ -30,6 +30,7 @@ void Log(const void *data, int size) {
     (void)(data);
     (void)(size);
     /* ... */
+#if 0
     u8 backup[TlsBackupSize];
     memcpy(backup, armGetTls(), TlsBackupSize);
     const u8 *dat = (const u8 *)data;
@@ -46,6 +47,7 @@ void Log(const void *data, int size) {
         LogStr(buf);
     }
     memcpy(armGetTls(), backup, TlsBackupSize);
+#endif
 }
 
 void LogStr(const char *str) {
