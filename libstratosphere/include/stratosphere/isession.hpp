@@ -118,12 +118,12 @@ class ISession : public IWaitable {
             IpcCommand c;
             ipcInitialize(&c);
             
-            if (r.IsDomainMessage && this->active_object == NULL) {
+            if (r.IsDomainRequest && this->active_object == NULL) {
                 return 0xF601;
             }
            
             
-            if (r.IsDomainMessage && r.MessageType == DomainMessageType_Close) {
+            if (r.IsDomainRequest && r.InMessageType == DomainMessageType_Close) {
                 this->domain->delete_object(this->active_object);
                 this->active_object = NULL;
                 struct {
@@ -187,6 +187,10 @@ class ISession : public IWaitable {
             ipcAddRecvStatic(&c_for_reply, this->pointer_buffer.data(), this->pointer_buffer.size(), 0);
             ipcPrepareHeader(&c_for_reply, 0);
             
+            /* Fix libnx bug in serverside C descriptor handling. */
+            ((u32 *)armGetTls())[1] &= 0xFFFFC3FF;
+            ((u32 *)armGetTls())[1] |= (2) << 10;
+            
             if (R_SUCCEEDED(rc = svcReplyAndReceive(&handle_index, &this->server_handle, 1, 0, U64_MAX))) {
                 if (handle_index != 0) {
                     /* TODO: Panic? */
@@ -198,11 +202,11 @@ class ISession : public IWaitable {
                 Result retval = ipcParse(&r);
                 if (R_SUCCEEDED(retval)) {
                     if (this->is_domain && (r.CommandType == IpcCommandType_Request || r.CommandType == IpcCommandType_RequestWithContext)) {
-                        retval = ipcParseForDomain(&r);
-                        if (!r.IsDomainMessage || r.ThisObjectId >= DOMAIN_ID_MAX) {
+                        retval = ipcParseDomainRequest(&r);
+                        if (!r.IsDomainRequest || r.InThisObjectId >= DOMAIN_ID_MAX) {
                             retval = 0xF601;
                         } else {
-                            this->active_object = this->domain->get_domain_object(r.ThisObjectId);
+                            this->active_object = this->domain->get_domain_object(r.InThisObjectId);
                         }
                     } else {
                         this->active_object = this->service_object;
