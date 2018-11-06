@@ -18,7 +18,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 TARGET		:=	$(notdir $(CURDIR))
 SOURCES		:=	source
 DATA		:=	data
-INCLUDES	:=  include ../../common/include
+INCLUDES	:=  include ../common/include
 
 #---------------------------------------------------------------------------------
 # options for code generation
