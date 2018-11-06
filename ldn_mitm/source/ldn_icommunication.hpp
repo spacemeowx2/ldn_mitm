@@ -18,6 +18,35 @@
 #include <switch.h>
 #include <stratosphere.hpp>
 #include "debug.hpp"
+#include "ldn_types.h"
+
+enum LdnCommCmd {
+    LdnCommCmd_GetState = 0,
+    LdnCommCmd_GetNetworkInfo = 1,
+    LdnCommCmd_GetIpv4Address = 2,
+    LdnCommCmd_GetDisconnectReason = 3,
+    LdnCommCmd_GetSecurityParameter = 4,
+    LdnCommCmd_GetNetworkConfig = 5,
+    LdnCommCmd_AttachStateChangeEvent = 100,
+    LdnCommCmd_GetNetworkInfoLatestUpdate = 101,
+    LdnCommCmd_Scan = 102,
+    // 103
+    LdnCommCmd_OpenAccessPoint = 200,
+    LdnCommCmd_CloseAccessPoint = 201,
+    LdnCommCmd_CreateNetwork = 202,
+    // 203
+    LdnCommCmd_DestroyNetwork = 204,
+    // 205
+    LdnCommCmd_SetAdvertiseData = 206,
+    // 207-209
+    LdnCommCmd_OpenStation = 300,
+    LdnCommCmd_CloseStation = 301,
+    LdnCommCmd_Connect = 302,
+    // 303
+    LdnCommCmd_Disconnect = 304,
+    LdnCommCmd_Initialize = 400,
+    LdnCommCmd_Finalize = 401,
+};
 
 enum class CommState {
     None,
@@ -43,7 +72,49 @@ class ICommunicationInterface : public IServiceObject {
             /* ... */
         };
     private:
+        Result ReturnSuccess() {
+            return 0;
+        }        
+        Result Initialize(u64 unk, PidDescriptor pid);
+        Result Finalize();
+        Result GetState(Out<u32> state);
+        Result GetNetworkInfo(OutPointerWithServerSize<NetworkInfo, 1> buffer);
+        Result GetIpv4Address(Out<u32> address, Out<u32> mask);
+        Result GetDisconnectReason(Out<u16> reason);
+        Result GetSecurityParameter(Out<SecurityParameter> out);
+        Result GetNetworkConfig(Out<NetworkConfig> out);
+        Result OpenAccessPoint();
+        Result CloseAccessPoint();
+        Result DestroyNetwork();
+        Result CreateNetwork(CreateNetworkConfig data);
+        Result OpenStation();
+        Result CloseStation();
+        Result Disconnect();
+        Result SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2);
+        Result AttachStateChangeEvent(Out<CopiedHandle> handle);
+        Result Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> buffer, OutBuffer<NetworkInfo> data, u16 bufferCount);
+        Result Connect(ConnectNetworkData dat, InPointer<u8> data);
+        Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
+            MakeServiceCommandMeta<LdnCommCmd_GetState, &ICommunicationInterface::GetState>(),
+            MakeServiceCommandMeta<LdnCommCmd_GetNetworkInfo, &ICommunicationInterface::GetNetworkInfo>(),
+            MakeServiceCommandMeta<LdnCommCmd_GetIpv4Address, &ICommunicationInterface::GetIpv4Address>(),
+            MakeServiceCommandMeta<LdnCommCmd_GetDisconnectReason, &ICommunicationInterface::GetDisconnectReason>(),
+            MakeServiceCommandMeta<LdnCommCmd_GetNetworkConfig, &ICommunicationInterface::GetNetworkConfig>(),
+            MakeServiceCommandMeta<LdnCommCmd_AttachStateChangeEvent, &ICommunicationInterface::AttachStateChangeEvent>(),
+            MakeServiceCommandMeta<LdnCommCmd_GetNetworkInfoLatestUpdate, &ICommunicationInterface::GetNetworkInfoLatestUpdate>(),
+            MakeServiceCommandMeta<LdnCommCmd_Scan, &ICommunicationInterface::Scan>(),
+            MakeServiceCommandMeta<LdnCommCmd_OpenAccessPoint, &ICommunicationInterface::OpenAccessPoint>(),
+            MakeServiceCommandMeta<LdnCommCmd_CloseAccessPoint, &ICommunicationInterface::CloseAccessPoint>(),
+            MakeServiceCommandMeta<LdnCommCmd_CreateNetwork, &ICommunicationInterface::CreateNetwork>(),
+            MakeServiceCommandMeta<LdnCommCmd_DestroyNetwork, &ICommunicationInterface::DestroyNetwork>(),
+            MakeServiceCommandMeta<LdnCommCmd_OpenStation, &ICommunicationInterface::OpenStation>(),
+            MakeServiceCommandMeta<LdnCommCmd_CloseStation, &ICommunicationInterface::CloseStation>(),
+            MakeServiceCommandMeta<LdnCommCmd_Connect, &ICommunicationInterface::Connect>(),
+            MakeServiceCommandMeta<LdnCommCmd_Disconnect, &ICommunicationInterface::Disconnect>(),
+            MakeServiceCommandMeta<LdnCommCmd_SetAdvertiseData, &ICommunicationInterface::SetAdvertiseData>(),
+            MakeServiceCommandMeta<LdnCommCmd_Initialize, &ICommunicationInterface::Initialize>(),
+            MakeServiceCommandMeta<LdnCommCmd_Finalize, &ICommunicationInterface::Finalize>(),
         };
 };
