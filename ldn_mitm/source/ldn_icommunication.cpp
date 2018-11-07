@@ -11,8 +11,16 @@ static const u32 LANMagic = 0x114514;
 
 // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
+const char *ICommunicationInterface::FakeSsid = "12345678123456781234567812345678";
+Service ICommunicationInterface::nifmSrv = {0};
+Service ICommunicationInterface::nifmIGS = {0};
+u64 ICommunicationInterface::nifmRefCount = 0;
 
 Result ICommunicationInterface::nifmInit() {
+    atomicIncrement64(&nifmRefCount);
+    if (serviceIsActive(&nifmSrv))
+        return 0;
+
     Result rc = smGetService(&nifmSrv, "nifm:u");
     if (R_FAILED(rc)) {
         rc = MAKERESULT(ModuleID, 5);
@@ -63,28 +71,72 @@ quit:
     return rc;
 }
 
-u32 my_get_ipv4_address() {
-    u32 ip_address;
-    Result rc = nifmGetCurrentIpAddress(&ip_address);
-    char buf[64];
-
-    sprintf(buf, "my get_ipv4_address %d %x\n", rc, ip_address);
-    LogStr(buf);
-
-    if (R_SUCCEEDED(rc)) {
-        return __builtin_bswap32(ip_address);
-    } else {
-        return 0xFFFFFFFF;
+void ICommunicationInterface::nifmFinal() {
+    if (atomicDecrement64(&nifmRefCount) == 0) {
+        serviceClose(&nifmIGS);
+        serviceClose(&nifmSrv);
     }
 }
 
-const char *ICommunicationInterface::FakeSsid = "12345678123456781234567812345678";
+Result ICommunicationInterface::nifmGetIpConfig(u32* address) {
+    u32 netmask;
+    return nifmGetIpConfig(address, &netmask);
+}
 
-void ICommunicationInterface::get_fake_mac(u8 mac[6]) {
+Result ICommunicationInterface::nifmGetIpConfig(u32* address, u32* netmask) {
+    Result rc;
+    IpcCommand c;
+    IpcParsedCommand r;
+
+    ipcInitialize(&c);
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = (decltype(raw))serviceIpcPrepareHeader(&nifmIGS, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 15; // GetCurrentIpConfigInfo
+
+    rc = serviceIpcDispatch(&nifmIGS);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+    struct {
+        u64 magic;
+        u64 result;
+        u8 _unk;
+        u32 address;
+        u32 netmask;
+        u32 gateway;
+    } __attribute__((packed)) *resp;
+
+    serviceIpcParse(&nifmIGS, &r, sizeof(*resp));
+    resp = (decltype(resp))r.Raw;
+
+    rc = resp->result;
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+    *address = resp->address;
+    *netmask = resp->netmask;
+    // ret = resp->address | ~resp->netmask;
+
+    return rc;
+}
+
+Result ICommunicationInterface::get_fake_mac(u8 mac[6]) {
     mac[0] = 0x02;
     mac[1] = 0x00;
-    u32 ip = my_get_ipv4_address();
-    memcpy(mac + 2, &ip, sizeof(ip));
+
+    u32 ip;
+    Result rc = nifmGetIpConfig(&ip);
+    if (R_SUCCEEDED(rc)) {
+        memcpy(mac + 2, &ip, sizeof(ip));
+    }
+
+    return rc;
 }
 
 Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
@@ -94,15 +146,20 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     sprintf(buf, "ICommunicationInterface::initialize unk: %" PRIu64 " pid: %" PRIu64 "\n", unk, pid.pid);
     LogStr(buf);
 
-    this->set_state(CommState::Initialized);
-    if (this->state_event == nullptr) {
-        this->state_event = CreateWriteOnlySystemEvent();
+    rc = nifmInit();
+
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::Initialized);
+        if (this->state_event == nullptr) {
+            this->state_event = CreateWriteOnlySystemEvent();
+        }
     }
 
     return rc;
 }
 
 Result ICommunicationInterface::Finalize() {
+    nifmFinal();
     return 0;
 }
 
@@ -161,6 +218,12 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
 
     LogHex(&data, 0x94);
 
+    u32 address;
+    rc = nifmGetIpConfig(&address);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+
     this->network_info.ldn.nodeCountMax = data.networkConfig.nodeCountMax;
     this->network_info.ldn.securityMode = data.securityConfig.securityMode;
     if (data.networkConfig.channel == 0) {
@@ -175,18 +238,11 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
     strcpy(nodes[0].userName, data.userConfig.userName);
     nodes[0].localCommunicationVersion = data.networkConfig.localCommunicationVersion;
 
-    nodes[0].ipv4Address = my_get_ipv4_address();
-    get_fake_mac(nodes[0].macAddress);
-
-#if 1
-    this->network_info.ldn.nodeCount++;
-    nodes[1].isConnected = 1;
-    strcpy(nodes[1].userName, "fuck");
-    nodes[1].localCommunicationVersion = nodes[0].localCommunicationVersion;
-
-    nodes[1].ipv4Address = 0xC0A8E999;
-    get_fake_mac(nodes[1].macAddress);
-#endif
+    nodes[0].ipv4Address = address;
+    rc = get_fake_mac(nodes[0].macAddress);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
 
     this->set_state(CommState::AccessPointCreated);
 
@@ -216,17 +272,14 @@ Result ICommunicationInterface::GetState(Out<u32> state) {
     return rc;
 }
 
-Result ICommunicationInterface::GetIpv4Address(Out<u32> address, Out<u32> mask) {
-    u32 ip_address = my_get_ipv4_address();
+Result ICommunicationInterface::GetIpv4Address(Out<u32> address, Out<u32> netmask) {
+    Result rc = nifmGetIpConfig(address.GetPointer(), netmask.GetPointer());
     char buf[64];
 
-    sprintf(buf, "get_ipv4_address %x\n", ip_address);
+    sprintf(buf, "get_ipv4_address %x %x\n", address.GetValue(), netmask.GetValue());
     LogStr(buf);
 
-    address.SetValue(ip_address);
-    mask.SetValue(0xFFFF0000);
-
-    return 0;
+    return rc;
 }
 
 Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkInfo, 1> buffer) {
@@ -320,6 +373,12 @@ Result ICommunicationInterface::Connect(ConnectNetworkData dat, InPointer<u8> da
     LogHex(data.pointer, sizeof(NetworkInfo));
     LogHex(&dat, sizeof(dat));
 
+    u32 address;
+    Result rc = nifmGetIpConfig(&address);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+
     memcpy(&this->network_info, data.pointer, sizeof(NetworkInfo));
 
     this->network_info.ldn.nodeCount++;
@@ -328,8 +387,11 @@ Result ICommunicationInterface::Connect(ConnectNetworkData dat, InPointer<u8> da
     strcpy(nodes[1].userName, dat.userConfig.userName);
     nodes[1].localCommunicationVersion = nodes[0].localCommunicationVersion;
 
-    nodes[1].ipv4Address = my_get_ipv4_address();
-    get_fake_mac(nodes[1].macAddress);
+    nodes[1].ipv4Address = address;
+    rc = get_fake_mac(nodes[1].macAddress);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
 
     this->set_state(CommState::StationConnected);
 

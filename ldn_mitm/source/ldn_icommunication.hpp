@@ -64,6 +64,7 @@ class ICommunicationInterface : public IServiceObject {
     private:
         static Service nifmSrv;
         static Service nifmIGS;
+        static u64 nifmRefCount;
         static const char *FakeSsid;
         CommState state;
         IEvent *state_event;
@@ -80,7 +81,10 @@ class ICommunicationInterface : public IServiceObject {
         };
     private:
         static Result nifmInit();
-        void get_fake_mac(u8 mac[6]);
+        static void nifmFinal();
+        static Result nifmGetIpConfig(u32* address, u32* netmask);
+        static Result nifmGetIpConfig(u32* address);
+        Result get_fake_mac(u8 mac[6]);
         void set_state(CommState new_state) {
             this->state = new_state;
             if (this->state_event) {
