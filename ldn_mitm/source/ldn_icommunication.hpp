@@ -30,19 +30,21 @@ enum LdnCommCmd {
     LdnCommCmd_AttachStateChangeEvent = 100,
     LdnCommCmd_GetNetworkInfoLatestUpdate = 101,
     LdnCommCmd_Scan = 102,
-    // 103
+    LdnCommCmd_ScanPrivate = 103,                   // nyi
     LdnCommCmd_OpenAccessPoint = 200,
     LdnCommCmd_CloseAccessPoint = 201,
     LdnCommCmd_CreateNetwork = 202,
-    // 203
+    LdnCommCmd_CreateNetworkPrivate = 203,          // nyi
     LdnCommCmd_DestroyNetwork = 204,
-    // 205
+    LdnCommCmd_Reject = 205,                        // nyi
     LdnCommCmd_SetAdvertiseData = 206,
-    // 207-209
+    LdnCommCmd_SetStationAcceptPolicy = 207,        // nyi
+    LdnCommCmd_AddAcceptFilterEntry = 208,          // nyi
+    LdnCommCmd_ClearAcceptFilter = 209,             // nyi
     LdnCommCmd_OpenStation = 300,
     LdnCommCmd_CloseStation = 301,
     LdnCommCmd_Connect = 302,
-    // 303
+    LdnCommCmd_ConnectPrivate = 303,                // nyi
     LdnCommCmd_Disconnect = 304,
     LdnCommCmd_Initialize = 400,
     LdnCommCmd_Finalize = 401,
