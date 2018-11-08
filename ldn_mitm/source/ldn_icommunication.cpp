@@ -3,12 +3,6 @@
 static_assert(sizeof(NetworkInfo) == 0x480, "sizeof(NetworkInfo) should be 0x480");
 static_assert(sizeof(ConnectNetworkData) == 0x7C, "sizeof(ConnectNetworkData) should be 0x7C");
 
-static const int ModuleID = 0xFE;
-static const int DiscoveryPort = 11452;
-static const int BufferSize = 2048;
-static const int ScanResultCountMax = 24;
-static const u32 LANMagic = 0x114514;
-
 // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
 const char *ICommunicationInterface::FakeSsid = "12345678123456781234567812345678";
