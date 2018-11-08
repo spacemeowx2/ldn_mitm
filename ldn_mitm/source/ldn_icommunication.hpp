@@ -18,7 +18,9 @@
 #include <switch.h>
 #include <stratosphere.hpp>
 #include "debug.hpp"
+#include "lan_discovery.hpp"
 #include "ldn_types.h"
+#include "ipinfo.hpp"
 
 enum LdnCommCmd {
     LdnCommCmd_GetState = 0,
@@ -62,10 +64,8 @@ enum class CommState {
 
 class ICommunicationInterface : public IServiceObject {
     private:
-        static Service nifmSrv;
-        static Service nifmIGS;
-        static u64 nifmRefCount;
-        static const char *FakeSsid;
+        static const char* FakeSsid;
+        static LANDiscovery lanDiscovery;
         CommState state;
         IEvent *state_event;
         NetworkInfo network_info;
@@ -78,10 +78,11 @@ class ICommunicationInterface : public IServiceObject {
         ~ICommunicationInterface() {
             LogStr("~ICommunicationInterface\n");
             /* ... */
+            if (this->state_event) {
+                delete this->state_event;
+            }
         };
     private:
-        static Result nifmInit();
-        static void nifmFinal();
         static Result nifmGetIpConfig(u32* address, u32* netmask);
         static Result nifmGetIpConfig(u32* address);
         Result get_fake_mac(u8 mac[6]);

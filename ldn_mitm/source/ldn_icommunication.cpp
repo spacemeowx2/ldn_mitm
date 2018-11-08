@@ -12,126 +12,14 @@ static const u32 LANMagic = 0x114514;
 // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
 const char *ICommunicationInterface::FakeSsid = "12345678123456781234567812345678";
-Service ICommunicationInterface::nifmSrv = {0};
-Service ICommunicationInterface::nifmIGS = {0};
-u64 ICommunicationInterface::nifmRefCount = 0;
-
-Result ICommunicationInterface::nifmInit() {
-    atomicIncrement64(&nifmRefCount);
-    if (serviceIsActive(&nifmSrv))
-        return 0;
-
-    Result rc = smGetService(&nifmSrv, "nifm:u");
-    if (R_FAILED(rc)) {
-        rc = MAKERESULT(ModuleID, 5);
-        goto quit;
-    }
-
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    ipcSendPid(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u64 param;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&nifmSrv, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 5;
-    raw->param = 0;
-
-    rc = serviceIpcDispatch(&nifmSrv);
-
-    if (R_FAILED(rc)) {
-        rc = MAKERESULT(ModuleID, 6);
-        goto quit;
-    }
-    struct {
-        u64 magic;
-        u64 result;
-    } *resp;
-
-    serviceIpcParse(&nifmSrv, &r, sizeof(*resp));
-    resp = (decltype(resp))r.Raw;
-
-    rc = resp->result;
-
-    if (R_FAILED(rc)) {
-        rc = MAKERESULT(ModuleID, 7);
-        goto quit;
-    }
-
-    serviceCreateSubservice(&nifmIGS, &nifmSrv, &r, 0);
-
-quit:
-    return rc;
-}
-
-void ICommunicationInterface::nifmFinal() {
-    if (atomicDecrement64(&nifmRefCount) == 0) {
-        serviceClose(&nifmIGS);
-        serviceClose(&nifmSrv);
-    }
-}
-
-Result ICommunicationInterface::nifmGetIpConfig(u32* address) {
-    u32 netmask;
-    return nifmGetIpConfig(address, &netmask);
-}
-
-Result ICommunicationInterface::nifmGetIpConfig(u32* address, u32* netmask) {
-    Result rc;
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&nifmIGS, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 15; // GetCurrentIpConfigInfo
-
-    rc = serviceIpcDispatch(&nifmIGS);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
-    struct {
-        u64 magic;
-        u64 result;
-        u8 _unk;
-        u32 address;
-        u32 netmask;
-        u32 gateway;
-    } __attribute__((packed)) *resp;
-
-    serviceIpcParse(&nifmIGS, &r, sizeof(*resp));
-    resp = (decltype(resp))r.Raw;
-
-    rc = resp->result;
-    if (R_FAILED(rc)) {
-        return rc;
-    }
-    *address = resp->address;
-    *netmask = resp->netmask;
-    // ret = resp->address | ~resp->netmask;
-
-    return rc;
-}
+LANDiscovery ICommunicationInterface::lanDiscovery;
 
 Result ICommunicationInterface::get_fake_mac(u8 mac[6]) {
     mac[0] = 0x02;
     mac[1] = 0x00;
 
     u32 ip;
-    Result rc = nifmGetIpConfig(&ip);
+    Result rc = ipinfoGetIpConfig(&ip);
     if (R_SUCCEEDED(rc)) {
         memcpy(mac + 2, &ip, sizeof(ip));
     }
@@ -146,20 +34,21 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     sprintf(buf, "ICommunicationInterface::initialize unk: %" PRIu64 " pid: %" PRIu64 "\n", unk, pid.pid);
     LogStr(buf);
 
-    rc = nifmInit();
-
-    if (R_SUCCEEDED(rc)) {
-        this->set_state(CommState::Initialized);
-        if (this->state_event == nullptr) {
-            this->state_event = CreateWriteOnlySystemEvent();
-        }
+    if (this->state_event == nullptr) {
+        this->state_event = CreateWriteOnlySystemEvent();
     }
+
+    rc = lanDiscovery.initialize();
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+
+    this->set_state(CommState::Initialized);
 
     return rc;
 }
 
 Result ICommunicationInterface::Finalize() {
-    nifmFinal();
     return 0;
 }
 
@@ -219,7 +108,7 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
     LogHex(&data, 0x94);
 
     u32 address;
-    rc = nifmGetIpConfig(&address);
+    rc = ipinfoGetIpConfig(&address);
     if (R_FAILED(rc)) {
         return rc;
     }
@@ -273,7 +162,7 @@ Result ICommunicationInterface::GetState(Out<u32> state) {
 }
 
 Result ICommunicationInterface::GetIpv4Address(Out<u32> address, Out<u32> netmask) {
-    Result rc = nifmGetIpConfig(address.GetPointer(), netmask.GetPointer());
+    Result rc = ipinfoGetIpConfig(address.GetPointer(), netmask.GetPointer());
     char buf[64];
 
     sprintf(buf, "get_ipv4_address %x %x\n", address.GetValue(), netmask.GetValue());
@@ -374,7 +263,7 @@ Result ICommunicationInterface::Connect(ConnectNetworkData dat, InPointer<u8> da
     LogHex(&dat, sizeof(dat));
 
     u32 address;
-    Result rc = nifmGetIpConfig(&address);
+    Result rc = ipinfoGetIpConfig(&address);
     if (R_FAILED(rc)) {
         return rc;
     }

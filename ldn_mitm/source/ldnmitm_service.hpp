@@ -10,9 +10,10 @@ enum LdnSrvCmd {
 
 class LdnMitMService : public IMitmServiceObject {      
     private:
-        // std::shared_ptr<IStorageInterface> romfs_storage;
+        std::shared_ptr<ICommunicationInterface> comm;
     public:
         LdnMitMService(std::shared_ptr<Service> s) : IMitmServiceObject(s) {
+            comm = std::make_shared<ICommunicationInterface>();
             LogStr("LdnMitMService\n");
             /* ... */
         }

@@ -90,12 +90,19 @@ void __appInit(void) {
     if (R_FAILED(rc)) {
         fatalLater(rc);
     }
+
+    rc = ipinfoInit();
+    if (R_FAILED(rc)) {
+        fatalLater(rc);
+    }
+
     CheckAtmosphereVersion();
     LogStr("__appInit done\n");
 }
 
 void __appExit(void) {
     /* Cleanup services. */
+    ipinfoExit();
     fsdevUnmountAll();
     fsExit();
     smExit();

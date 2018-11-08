@@ -22,9 +22,6 @@
 
 Result LdnMitMService::CreateUserLocalCommunicationService(Out<std::shared_ptr<ICommunicationInterface>> out) {
     Result rc = 0;
-    std::shared_ptr<ICommunicationInterface> comm = nullptr;
-
-    comm = std::make_shared<ICommunicationInterface>();
 
     out.SetValue(std::move(comm));
     return rc;
