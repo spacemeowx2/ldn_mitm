@@ -3,5 +3,5 @@
 A mitm kip modified from fs_mitm.
 
 ```
-git submodule update --init
+git submodule update --init --recursive
 ```
