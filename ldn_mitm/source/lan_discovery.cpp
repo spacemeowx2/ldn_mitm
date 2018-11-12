@@ -82,8 +82,10 @@ void LANDiscovery::Worker(void* args) {
 
 void LANDiscovery::worker() {
     while (!stop) {
-
+        svcSleepThread(1000000000L);
     }
+    LogStr("Worker exit\n");
+    svcExitThread();
 }
 
 int LANDiscovery::compress(uint8_t *in, size_t input_size, uint8_t *output, size_t *output_size) {

@@ -25,7 +25,7 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     Result rc = 0;
 
     char buf[128];
-    sprintf(buf, "ICommunicationInterface::initialize unk: %" PRIu64 " pid: %" PRIu64 "\n", unk, pid.pid);
+    sprintf(buf, "ICommunicationInterface::Initialize unk: %" PRIu64 " pid: %" PRIu64 "\n", unk, pid.pid);
     LogStr(buf);
 
     if (this->state_event == nullptr) {
