@@ -67,10 +67,10 @@ class ICommunicationInterface : public IServiceObject {
         static const char* FakeSsid;
         static LANDiscovery lanDiscovery;
         CommState state;
-        IEvent *state_event;
         NetworkInfo network_info;
+        IEvent *state_event;
     public:
-        ICommunicationInterface(): state(CommState::None), network_info({0}) {
+        ICommunicationInterface(): state(CommState::None), network_info({0}), state_event(nullptr) {
             LogStr("ICommunicationInterface\n");
             /* ... */
         };
@@ -83,8 +83,6 @@ class ICommunicationInterface : public IServiceObject {
             }
         };
     private:
-        static Result nifmGetIpConfig(u32* address, u32* netmask);
-        static Result nifmGetIpConfig(u32* address);
         Result get_fake_mac(u8 mac[6]);
         void set_state(CommState new_state) {
             this->state = new_state;

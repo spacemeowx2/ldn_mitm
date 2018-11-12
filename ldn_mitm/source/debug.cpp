@@ -20,7 +20,7 @@
 #include "debug.hpp"
 
 const size_t TlsBackupSize = 0x100;
-#define ENABLE_LOG 0
+#define ENABLE_LOG 1
 
 #if ENABLE_LOG
 static Mutex g_file_mutex = 0;

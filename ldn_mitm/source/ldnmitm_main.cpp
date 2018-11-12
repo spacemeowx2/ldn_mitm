@@ -96,12 +96,32 @@ void __appInit(void) {
         fatalLater(rc);
     }
 
+    #define SOCK_BUFFERSIZE 0x1000
+    static const SocketInitConfig socketInitConfig = {
+        .bsdsockets_version = 1,
+
+        .tcp_tx_buf_size = 8 * SOCK_BUFFERSIZE,
+        .tcp_rx_buf_size = 8 * SOCK_BUFFERSIZE,
+        .tcp_tx_buf_max_size = 16 * SOCK_BUFFERSIZE,
+        .tcp_rx_buf_max_size = 16 * SOCK_BUFFERSIZE,
+
+        .udp_tx_buf_size = 0x2400,
+        .udp_rx_buf_size = 0xA500,
+
+        .sb_efficiency = 8,
+    };
+    rc = socketInitialize(&socketInitConfig);
+    if (R_FAILED(rc)) {
+        fatalLater(rc);
+    }
+
     CheckAtmosphereVersion();
     LogStr("__appInit done\n");
 }
 
 void __appExit(void) {
     /* Cleanup services. */
+    socketExit();
     ipinfoExit();
     fsdevUnmountAll();
     fsExit();
@@ -109,7 +129,7 @@ void __appExit(void) {
 }
 
 struct LdnMitmManagerOptions {
-    static const size_t PointerBufferSize = 0x800;
+    static const size_t PointerBufferSize = 0x1000;
     static const size_t MaxDomains = 0x10;
     static const size_t MaxDomainObjects = 0x4000;
 };
