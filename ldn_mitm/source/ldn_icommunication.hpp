@@ -83,26 +83,11 @@ class ICommunicationInterface : public IServiceObject {
             }
         };
     private:
-        Result get_fake_mac(u8 mac[6]);
         void set_state(CommState new_state) {
             this->state = new_state;
             if (this->state_event) {
                 LogStr("state_event signal_event\n");
                 this->state_event->Signal();
-            }
-        }
-        void init_network_info() {
-            memset(&this->network_info, 0, sizeof(NetworkInfo));
-            this->network_info.common.channel = 6;
-            this->network_info.common.linkLevel = 3;
-            this->network_info.common.networkType = 2;
-            this->network_info.common.ssidLength = strlen(FakeSsid);
-
-            get_fake_mac(this->network_info.common.bssid);
-            strcpy(this->network_info.common.ssid, FakeSsid);
-            NodeInfo *nodes = this->network_info.ldn.nodes;
-            for (int i = 0; i < NodeCountMax; i++) {
-                nodes[i].nodeId = i;
             }
         }
     private:

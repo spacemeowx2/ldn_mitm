@@ -8,19 +8,6 @@ static_assert(sizeof(ConnectNetworkData) == 0x7C, "sizeof(ConnectNetworkData) sh
 const char *ICommunicationInterface::FakeSsid = "12345678123456781234567812345678";
 LANDiscovery ICommunicationInterface::lanDiscovery;
 
-Result ICommunicationInterface::get_fake_mac(u8 mac[6]) {
-    mac[0] = 0x02;
-    mac[1] = 0x00;
-
-    u32 ip;
-    Result rc = ipinfoGetIpConfig(&ip);
-    if (R_SUCCEEDED(rc)) {
-        memcpy(mac + 2, &ip, sizeof(ip));
-    }
-
-    return rc;
-}
-
 Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     Result rc = 0;
 
@@ -49,7 +36,6 @@ Result ICommunicationInterface::Finalize() {
 Result ICommunicationInterface::OpenAccessPoint() {
     Result rc = 0;
 
-    this->init_network_info();
     this->set_state(CommState::AccessPoint);
 
     return rc;
@@ -74,7 +60,6 @@ Result ICommunicationInterface::DestroyNetwork() {
 Result ICommunicationInterface::OpenStation() {
     Result rc = 0;
 
-    this->init_network_info();
     this->set_state(CommState::Station);
 
     return rc;
@@ -100,32 +85,6 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
     Result rc = 0;
 
     LogHex(&data, 0x94);
-
-    u32 address;
-    rc = ipinfoGetIpConfig(&address);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
-
-    this->network_info.ldn.nodeCountMax = data.networkConfig.nodeCountMax;
-    this->network_info.ldn.securityMode = data.securityConfig.securityMode;
-    if (data.networkConfig.channel == 0) {
-        this->network_info.common.channel = 6;
-    } else {
-        this->network_info.common.channel = data.networkConfig.channel;
-    }
-    this->network_info.networkId.intentId = data.networkConfig.intentId;
-    this->network_info.ldn.nodeCount = 1;
-    NodeInfo *nodes = this->network_info.ldn.nodes;
-    nodes[0].isConnected = 1;
-    strcpy(nodes[0].userName, data.userConfig.userName);
-    nodes[0].localCommunicationVersion = data.networkConfig.localCommunicationVersion;
-
-    nodes[0].ipv4Address = address;
-    rc = get_fake_mac(nodes[0].macAddress);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
 
     this->set_state(CommState::AccessPointCreated);
 
@@ -271,10 +230,6 @@ Result ICommunicationInterface::Connect(ConnectNetworkData dat, InPointer<u8> da
     nodes[1].localCommunicationVersion = nodes[0].localCommunicationVersion;
 
     nodes[1].ipv4Address = address;
-    rc = get_fake_mac(nodes[1].macAddress);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
 
     this->set_state(CommState::StationConnected);
 

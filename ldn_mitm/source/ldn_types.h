@@ -1,5 +1,5 @@
 #pragma once
-#include <switch.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,7 +12,11 @@ extern "C" {
 #define PassphraseLengthMax 64
 
 typedef struct {
-    uint8_t bssid[6];
+    uint8_t raw[6];
+} MacAddress;
+
+typedef struct {
+    MacAddress bssid;
     uint8_t ssidLength;
     char ssid[SsidLengthMax + 1];
     int16_t channel;
@@ -23,13 +27,13 @@ typedef struct {
 
 typedef struct {
     uint32_t ipv4Address;
-	uint8_t macAddress[6];
+    MacAddress macAddress;
     int8_t nodeId;
     int8_t isConnected;
     char userName[UserNameBytesMax+1];
-	uint8_t _unk1;
+    uint8_t _unk1;
     int16_t localCommunicationVersion;
-	uint8_t _unk2[16];
+    uint8_t _unk2[16];
 } NodeInfo;
 
 typedef struct {
@@ -43,7 +47,7 @@ typedef struct {
     uint16_t _unk2;
     uint16_t advertiseDataSize;
     uint8_t advertiseData[AdvertiseDataSizeMax];
-	char _unk3[148];
+    uint8_t _unk3[148];
 } LdnNetworkInfo;
 
 typedef struct {
@@ -99,7 +103,7 @@ typedef struct {
 typedef struct {
     SecurityConfig securityConfig;
     UserConfig userConfig;
-    uint32_t version;
+    uint32_t localCommunicationVersion;
     uint32_t option;
 } ConnectNetworkData;
 
