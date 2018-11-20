@@ -5,7 +5,6 @@ static_assert(sizeof(ConnectNetworkData) == 0x7C, "sizeof(ConnectNetworkData) sh
 
 // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
-const char *ICommunicationInterface::FakeSsid = "12345678123456781234567812345678";
 LANDiscovery ICommunicationInterface::lanDiscovery;
 
 Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
@@ -50,9 +49,11 @@ Result ICommunicationInterface::CloseAccessPoint() {
 }
 
 Result ICommunicationInterface::DestroyNetwork() {
-    Result rc = 0;
+    Result rc = lanDiscovery.destroyNetwork();
 
-    this->set_state(CommState::AccessPoint);
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::AccessPoint);
+    }
 
     return rc;
 }
@@ -74,9 +75,11 @@ Result ICommunicationInterface::CloseStation() {
 }
 
 Result ICommunicationInterface::Disconnect() {
-    Result rc = 0;
+    Result rc = lanDiscovery.disconnect();
 
-    this->set_state(CommState::Station);
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::Station);
+    }
 
     return rc;
 }
@@ -86,7 +89,10 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
 
     LogHex(&data, 0x94);
 
-    this->set_state(CommState::AccessPointCreated);
+    rc = lanDiscovery.createNetwork(&data.securityConfig, &data.userConfig, &data.networkConfig);
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::AccessPointCreated);
+    }
 
     return rc;
 }
@@ -100,8 +106,7 @@ Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data1, InBuffer<u
     sprintf(buf, "data1: %p data2: %p\n", data1.pointer, data2.buffer);
     LogStr(buf);
 
-    this->network_info.ldn.advertiseDataSize = data1.num_elements;
-    memcpy(&this->network_info.ldn.advertiseData, data1.pointer, data1.num_elements);
+    rc = lanDiscovery.setAdvertiseData(data1.pointer, data1.num_elements);
 
     return rc;
 }
@@ -132,7 +137,7 @@ Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkI
     LogStr(buf);
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
-        memcpy(buffer.pointer, &this->network_info, sizeof(NetworkInfo));
+        rc = lanDiscovery.getNetworkInfo(buffer.pointer);
     } else {
         rc = 0x40CB; // ResultConnectionFailed
     }
@@ -163,7 +168,7 @@ Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerS
     update.stateChange = 0; // None
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
-        memcpy(buffer1.pointer, &this->network_info, sizeof(NetworkInfo));
+        rc = lanDiscovery.getNetworkInfo(buffer1.pointer);
         memcpy(buffer2.pointer, &update, sizeof(update));
     } else {
         rc = 0x40CB; // ResultConnectionFailed
@@ -176,8 +181,12 @@ Result ICommunicationInterface::GetSecurityParameter(Out<SecurityParameter> out)
     Result rc = 0;
 
     SecurityParameter data;
-    NetworkInfo2SecurityParameter(&this->network_info, &data);
-    out.SetValue(data);
+    NetworkInfo info;
+    rc = lanDiscovery.getNetworkInfo(&info);
+    if (R_SUCCEEDED(rc)) {
+        NetworkInfo2SecurityParameter(&info, &data);
+        out.SetValue(data);
+    }
 
     return rc;
 }
@@ -186,8 +195,12 @@ Result ICommunicationInterface::GetNetworkConfig(Out<NetworkConfig> out) {
     Result rc = 0;
 
     NetworkConfig data;
-    NetworkInfo2NetworkConfig(&this->network_info, &data);
-    out.SetValue(data);
+    NetworkInfo info;
+    rc = lanDiscovery.getNetworkInfo(&info);
+    if (R_SUCCEEDED(rc)) {
+        NetworkInfo2NetworkConfig(&info, &data);
+        out.SetValue(data);
+    }
 
     return rc;
 }
@@ -197,41 +210,31 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> buffer, OutBuffer<NetworkInfo> data, u16 bufferCount) {
-    bufferCount = 8;
-    // LANDiscovery::scan(buffer.buffer, count.GetPointer(), bufferCount);
+Result ICommunicationInterface::Scan(Out<u16> outCount, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer, u16 bufferCount) {
+    // bufferCount = 8;
+
+    u16 count;
+    count = bufferCount;
+    Result rc = lanDiscovery.scan(buffer.buffer, &count);
+    outCount.SetValue(count);
 
     char buf[128];
-    sprintf(buf, "scan %d\n", bufferCount);
+    sprintf(buf, "scan %d %d\n", bufferCount, count);
     LogStr(buf);
 
-    return 0;
+    return rc;
 }
 
-Result ICommunicationInterface::Connect(ConnectNetworkData dat, InPointer<u8> data) {
+Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<NetworkInfo> data) {
     char buf[64];
     sprintf(buf, "ICommunicationInterface::connect %" PRIu64 "\n", data.num_elements);
     LogStr(buf);
     LogHex(data.pointer, sizeof(NetworkInfo));
-    LogHex(&dat, sizeof(dat));
+    LogHex(&param, sizeof(param));
 
-    u32 address;
-    Result rc = ipinfoGetIpConfig(&address);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
-
-    memcpy(&this->network_info, data.pointer, sizeof(NetworkInfo));
-
-    this->network_info.ldn.nodeCount++;
-    NodeInfo *nodes = this->network_info.ldn.nodes;
-    nodes[1].isConnected = 1;
-    strcpy(nodes[1].userName, dat.userConfig.userName);
-    nodes[1].localCommunicationVersion = nodes[0].localCommunicationVersion;
-
-    nodes[1].ipv4Address = address;
+    Result rc = lanDiscovery.connect(data.pointer, &param.userConfig, param.localCommunicationVersion);
 
     this->set_state(CommState::StationConnected);
 
-    return 0;
+    return rc;
 }

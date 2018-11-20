@@ -64,13 +64,11 @@ enum class CommState {
 
 class ICommunicationInterface : public IServiceObject {
     private:
-        static const char* FakeSsid;
         static LANDiscovery lanDiscovery;
         CommState state;
-        NetworkInfo network_info;
         IEvent *state_event;
     public:
-        ICommunicationInterface(): state(CommState::None), network_info({0}), state_event(nullptr) {
+        ICommunicationInterface(): state(CommState::None), state_event(nullptr) {
             LogStr("ICommunicationInterface\n");
             /* ... */
         };
@@ -111,8 +109,8 @@ class ICommunicationInterface : public IServiceObject {
         Result Disconnect();
         Result SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> buffer, OutBuffer<NetworkInfo> data, u16 bufferCount);
-        Result Connect(ConnectNetworkData dat, InPointer<u8> data);
+        Result Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer, u16 bufferCount);
+        Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
