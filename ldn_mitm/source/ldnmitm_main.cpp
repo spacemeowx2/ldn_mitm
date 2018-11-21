@@ -131,7 +131,7 @@ void __appExit(void) {
 struct LdnMitmManagerOptions {
     static const size_t PointerBufferSize = 0x1000;
     static const size_t MaxDomains = 0x10;
-    static const size_t MaxDomainObjects = 0x4000;
+    static const size_t MaxDomainObjects = 0x100;
 };
 using LdnMitmManager = WaitableManager<LdnMitmManagerOptions>;
 

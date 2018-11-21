@@ -5,8 +5,6 @@ static_assert(sizeof(ConnectNetworkData) == 0x7C, "sizeof(ConnectNetworkData) sh
 
 // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
-LANDiscovery ICommunicationInterface::lanDiscovery;
-
 Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     Result rc = 0;
 
@@ -137,6 +135,9 @@ Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkI
     LogStr(buf);
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
+        // NetworkInfo info;
+        // rc = lanDiscovery.getNetworkInfo(&info);
+        // std::memcpy(buffer.pointer, &info, sizeof(info));
         rc = lanDiscovery.getNetworkInfo(buffer.pointer);
     } else {
         rc = 0x40CB; // ResultConnectionFailed
@@ -146,13 +147,9 @@ Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkI
 }
 
 Result ICommunicationInterface::GetDisconnectReason(Out<u16> reason) {
-    Result rc = 0;
-
-    this->state_event->Signal();
-
     reason.SetValue(0);
 
-    return rc;
+    return 0;
 }
 
 Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2) {
@@ -210,16 +207,16 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u16> outCount, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer, u16 bufferCount) {
-    // bufferCount = 8;
+Result ICommunicationInterface::Scan(Out<u16> outCount, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer) {
+    Result rc = 0;
+    u16 count = buffer.num_elements;
 
-    u16 count;
-    count = bufferCount;
-    Result rc = lanDiscovery.scan(buffer.buffer, &count);
+    // rc = lanDiscovery.scan(buffer.buffer, &count);
+    count = 0;
     outCount.SetValue(count);
 
     char buf[128];
-    sprintf(buf, "scan %d %d\n", bufferCount, count);
+    sprintf(buf, "scan %d %d\n", count, rc);
     LogStr(buf);
 
     return rc;

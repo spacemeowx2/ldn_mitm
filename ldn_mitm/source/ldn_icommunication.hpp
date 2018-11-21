@@ -64,7 +64,7 @@ enum class CommState {
 
 class ICommunicationInterface : public IServiceObject {
     private:
-        static LANDiscovery lanDiscovery;
+        LANDiscovery lanDiscovery;
         CommState state;
         IEvent *state_event;
     public:
@@ -89,9 +89,6 @@ class ICommunicationInterface : public IServiceObject {
             }
         }
     private:
-        Result ReturnSuccess() {
-            return 0;
-        }        
         Result Initialize(u64 unk, PidDescriptor pid);
         Result Finalize();
         Result GetState(Out<u32> state);
@@ -109,7 +106,7 @@ class ICommunicationInterface : public IServiceObject {
         Result Disconnect();
         Result SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer, u16 bufferCount);
+        Result Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
     public:
