@@ -100,7 +100,9 @@ class LANDiscovery {
         u32 getBroadcast();
     public: 
         bool isHost;
-        LANDiscovery(u16 port = DefaultPort) : stop(false), inited(false), networkInfo({0}), listenPort(port), isHost(false) {};
+        LANDiscovery(u16 port = DefaultPort) : stop(false), inited(false), networkInfo({0}), listenPort(port), isHost(false) {
+            LogStr("LANDiscovery\n");
+        };
         Result initialize(bool listening = true);
         ~LANDiscovery();
         Result initNetworkInfo();

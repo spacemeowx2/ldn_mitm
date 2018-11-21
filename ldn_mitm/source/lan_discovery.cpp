@@ -46,6 +46,7 @@ u32 LANDiscovery::getBroadcast() {
     u32 netmask;
     Result rc = ipinfoGetIpConfig(&address, &netmask);
     if (R_FAILED(rc)) {
+        LogStr("Broadcast failed to get ip\n");
         return 0xFFFFFFFF;
     }
     u32 ret = address | ~netmask;
@@ -243,7 +244,7 @@ int LANDiscovery::sendBroadcast(LANPacketType type, const void *data, size_t siz
     struct sockaddr_in addr;
 
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(getBroadcast());
+    addr.sin_addr.s_addr = getBroadcast();
     addr.sin_port = htons(listenPort);
 
     return sendTo(type, data, size, addr);
@@ -519,6 +520,7 @@ int LANDiscovery::loopPoll() {
 }
 
 LANDiscovery::~LANDiscovery() {
+    LogStr("~LANDiscovery\n");
     if (inited) {
         stop = true;
         threadWaitForExit(&worker_thread);
