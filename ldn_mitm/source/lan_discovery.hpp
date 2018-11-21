@@ -95,7 +95,7 @@ class LANDiscovery {
         int sendPacket(LANPacketType type, const void *data, size_t size, std::function<int(const void *, size_t)> bindSend);
         int nodeRecv(int nodeId, u8 *buffer, size_t bufLen);
         void nodeClose(int nodeId);
-        Result getFakeMac(MacAddress mac);
+        Result getFakeMac(MacAddress *mac);
         Result getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion);
         u32 getBroadcast();
     public: 

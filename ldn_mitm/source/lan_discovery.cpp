@@ -23,7 +23,7 @@ Result LANDiscovery::setAdvertiseData(const u8 *data, uint16_t size) {
 }
 
 Result LANDiscovery::initNetworkInfo() {
-    Result rc = getFakeMac(this->networkInfo.common.bssid);
+    Result rc = getFakeMac(&this->networkInfo.common.bssid);
     if (R_FAILED(rc)) {
         return rc;
     }
@@ -52,14 +52,14 @@ u32 LANDiscovery::getBroadcast() {
     return ret;
 }
 
-Result LANDiscovery::getFakeMac(MacAddress mac) {
-    mac.raw[0] = 0x02;
-    mac.raw[1] = 0x00;
+Result LANDiscovery::getFakeMac(MacAddress *mac) {
+    mac->raw[0] = 0x02;
+    mac->raw[1] = 0x00;
 
     u32 ip;
     Result rc = ipinfoGetIpConfig(&ip);
     if (R_SUCCEEDED(rc)) {
-        memcpy(mac.raw + 2, &ip, sizeof(ip));
+        memcpy(mac->raw + 2, &ip, sizeof(ip));
     }
 
     return rc;
@@ -550,7 +550,7 @@ Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u
     if (R_FAILED(rc)) {
         return rc;
     }
-    rc = getFakeMac(node->macAddress);
+    rc = getFakeMac(&node->macAddress);
     if (R_FAILED(rc)) {
         return rc;
     }
