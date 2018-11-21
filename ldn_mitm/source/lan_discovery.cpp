@@ -462,12 +462,12 @@ void LANDiscovery::onNodeConnect() {
     nodes[i].pfd->fd = new_fd;
 }
 
-void LANDiscovery::loopPoll() {
+int LANDiscovery::loopPoll() {
     char buf[64];
     int rc;
     int nfds = DiscoveryFds + NodeMaxCount;
     if (!inited) {
-        return;
+        return 0;
     }
 
     {
@@ -478,25 +478,26 @@ void LANDiscovery::loopPoll() {
     {
         sprintf(buf, "loopPoll failed %d\n", rc);
         LogStr(buf);
-        return;
+        return -1;
     } else if (rc > 0) {
         /* check the command socket */
         if (fds[FdUdp].revents != 0) {
             if (fds[FdUdp].revents & POLL_UNKNOWN) {
-                sprintf(buf, "cmd_fd: revents=0x%08X\n", fds[FdUdp].revents);
+                sprintf(buf, "udp_fd: revents=0x%08X\n", fds[FdUdp].revents);
                 LogStr(buf);
             }
 
             if (fds[FdUdp].revents & (POLLERR | POLLHUP)) {
-                sprintf(buf, "cmd revents=0x%x\n", fds[FdUdp].revents);
+                sprintf(buf, "udp_fd revents=0x%x\n", fds[FdUdp].revents);
                 LogStr(buf);
+                return -1;
             } else if (fds[FdUdp].revents & (POLLIN | POLLPRI)) {
                 onPacket(0);
             }
         }
         if (fds[FdTcp].revents != 0) {
             if (fds[FdTcp].revents & POLL_UNKNOWN) {
-                sprintf(buf, "cmd_fd: revents=0x%08X\n", fds[FdUdp].revents);
+                sprintf(buf, "tcp_fd: revents=0x%08X\n", fds[FdUdp].revents);
                 LogStr(buf);
             }
             if (fds[FdTcp].revents & POLLIN)
@@ -513,6 +514,8 @@ void LANDiscovery::loopPoll() {
             }
         }
     }
+
+    return 0;
 }
 
 LANDiscovery::~LANDiscovery() {
@@ -532,7 +535,10 @@ LANDiscovery::~LANDiscovery() {
 
 void LANDiscovery::worker() {
     while (!stop) {
-        loopPoll();
+        int rc = loopPoll();
+        if (rc < 0) {
+            break;
+        }
         svcSleepThread(0);
     }
     LogStr("Worker exit\n");

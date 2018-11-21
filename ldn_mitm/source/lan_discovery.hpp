@@ -80,7 +80,7 @@ class LANDiscovery {
         u16 listenPort;
         Thread worker_thread;
         void worker();
-        void loopPoll();
+        int loopPoll();
         void onMessage(int index, LANPacketType type, const void *data, size_t size, ReplyFunc reply);
         void onPacket(int index);
         void onNodeConnect();
