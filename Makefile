@@ -1,6 +1,7 @@
 KIPS := ldn_mitm
+NROS := ldn_example
 
-SUBFOLDERS := libstratosphere $(KIPS)
+SUBFOLDERS := libstratosphere $(KIPS) $(NROS)
 
 TOPTARGETS := all clean
 
