@@ -94,7 +94,7 @@ class ICommunicationInterface : public IServiceObject {
         Result GetState(Out<u32> state);
         Result GetNetworkInfo(OutPointerWithServerSize<NetworkInfo, 1> buffer);
         Result GetIpv4Address(Out<u32> address, Out<u32> mask);
-        Result GetDisconnectReason(Out<u16> reason);
+        Result GetDisconnectReason(Out<u32> reason);
         Result GetSecurityParameter(Out<SecurityParameter> out);
         Result GetNetworkConfig(Out<NetworkConfig> out);
         Result OpenAccessPoint();
@@ -106,7 +106,7 @@ class ICommunicationInterface : public IServiceObject {
         Result Disconnect();
         Result SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u16> count, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer);
+        Result Scan(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
     public:

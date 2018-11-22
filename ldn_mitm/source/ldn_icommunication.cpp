@@ -98,8 +98,8 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
 Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2) {
     Result rc = 0;
 
-    char buf[128];
-    sprintf(buf, "ICommunicationInterface::set_advertise_data length data1: %" PRIu64 " data2: %" PRIu64 "\n", data1.num_elements, data2.num_elements);
+    char buf[256];
+    sprintf(buf, "ICommunicationInterface::SetAdvertiseData length data1: %" PRIu64 " data2: %" PRIu64 "\n", data1.num_elements, data2.num_elements);
     LogStr(buf);
     sprintf(buf, "data1: %p data2: %p\n", data1.pointer, data2.buffer);
     LogStr(buf);
@@ -146,7 +146,7 @@ Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkI
     return rc;
 }
 
-Result ICommunicationInterface::GetDisconnectReason(Out<u16> reason) {
+Result ICommunicationInterface::GetDisconnectReason(Out<u32> reason) {
     reason.SetValue(0);
 
     return 0;
@@ -207,12 +207,11 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u16> outCount, OutPointerWithServerSize<u8, 0> pointer, OutBuffer<NetworkInfo> buffer) {
+Result ICommunicationInterface::Scan(Out<u32> outCount, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _) {
     Result rc = 0;
     u16 count = buffer.num_elements;
 
-    // rc = lanDiscovery.scan(buffer.buffer, &count);
-    count = 0;
+    rc = lanDiscovery.scan(buffer.buffer, &count);
     outCount.SetValue(count);
 
     char buf[128];
