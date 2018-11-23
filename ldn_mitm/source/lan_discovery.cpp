@@ -760,9 +760,6 @@ int LANDiscovery::compress(const void *input, size_t input_size, uint8_t *output
 }
 
 int LANDiscovery::decompress(const void *input, size_t input_size, uint8_t *output, size_t *output_size) {
-#if DISABLE_COMPRESS
-    return -1;
-#endif
     const uint8_t *in = (decltype(in))input;
     const uint8_t *in_end = in + input_size;
     uint8_t *out = output;

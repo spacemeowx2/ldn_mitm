@@ -115,7 +115,7 @@ void __appInit(void) {
         fatalLater(rc);
     }
 
-    CheckAtmosphereVersion(0, 7, 5);
+    CheckAtmosphereVersion(0, 7, 0);
     LogStr("__appInit done\n");
 }
 

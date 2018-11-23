@@ -13,7 +13,7 @@
 #include "ldn_types.h"
 
 // Only used when debuging
-#define DISABLE_COMPRESS 1
+#define DISABLE_COMPRESS 0
 
 class LANDiscovery {
     public:
