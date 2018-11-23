@@ -10,6 +10,7 @@ static const int ModuleID = 0xFD;
 #define POLL_UNKNOWN (~(POLLIN | POLLPRI | POLLOUT))
 
 const char *LANDiscovery::FakeSsid = "12345678123456781234567812345678";
+const LANDiscovery::NodeEventFunc LANDiscovery::EmptyFunc = [](){};
 
 Result LANDiscovery::setAdvertiseData(const u8 *data, uint16_t size) {
     if (size > AdvertiseDataSizeMax) {
@@ -152,17 +153,6 @@ void LANDiscovery::onNodeChanged(int fromIndex) {
     LogStr(buf);
 
     updateNodes();
-
-    for (auto &i : nodes) {
-        if (i.status == NodeStatus::Connected) {
-            int fd = i.pfd->fd;
-            if (fd == -1) continue;
-            int ret = sendTcp(LANPacketType::sync_network, &networkInfo, sizeof(networkInfo), fd);
-            if (ret < 0) {
-                LogStr("Failed to sendTcp\n");
-            }
-        }
-    }
 }
 
 void LANDiscovery::onMessage(int index, LANPacketType type, const void *data, size_t size, ReplyFunc reply) {
@@ -208,6 +198,7 @@ void LANDiscovery::onMessage(int index, LANPacketType type, const void *data, si
                 break;
             }
             networkInfo = *info;
+            nodeEvent();
             break;
         }
         default: {
@@ -329,6 +320,19 @@ void LANDiscovery::updateNodes() {
         }
     }
     networkInfo.ldn.nodeCount = count;
+
+    for (auto &i : nodes) {
+        if (i.status == NodeStatus::Connected) {
+            int fd = i.pfd->fd;
+            if (fd == -1) continue;
+            int ret = sendTcp(LANPacketType::sync_network, &networkInfo, sizeof(networkInfo), fd);
+            if (ret < 0) {
+                LogStr("Failed to sendTcp\n");
+            }
+        }
+    }
+
+    nodeEvent();
 }
 
 void LANDiscovery::nodeClose(int nodeId) {
@@ -339,6 +343,8 @@ void LANDiscovery::nodeClose(int nodeId) {
     close(node.pfd->fd);
     node.pfd->fd = -1;
     node.status = NodeStatus::Disconnected;
+
+    updateNodes();
 }
 
 int LANDiscovery::nodeRecv(int nodeId, u8 *buffer, size_t bufLen) {
@@ -630,7 +636,7 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
     u32 hostIp = networkInfo->ldn.nodes[0].ipv4Address;
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(hostIp);
+    addr.sin_addr.s_addr = hostIp;
     addr.sin_port = htons(listenPort);
     char buf[64];
     sprintf(buf, "connect hostIp %x\n", hostIp);
@@ -673,10 +679,11 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
     return 0;
 }
 
-Result LANDiscovery::initialize(bool listening) {
+Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
     if (inited) {
         return 0;
     }
+    this->nodeEvent = nodeEvent;
     for(auto &i : fds) {
         i.fd = -1;
         i.events = POLLIN;

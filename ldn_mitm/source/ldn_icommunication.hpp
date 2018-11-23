@@ -88,6 +88,7 @@ class ICommunicationInterface : public IServiceObject {
                 this->state_event->Signal();
             }
         }
+        void onNodeChanged();
     private:
         Result Initialize(u64 unk, PidDescriptor pid);
         Result Finalize();

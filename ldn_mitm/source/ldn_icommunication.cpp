@@ -16,7 +16,9 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
         this->state_event = CreateWriteOnlySystemEvent();
     }
 
-    rc = lanDiscovery.initialize();
+    rc = lanDiscovery.initialize([&](){
+        this->onNodeChanged();
+    });
     if (R_FAILED(rc)) {
         return rc;
     }
@@ -233,4 +235,11 @@ Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<Netw
     this->set_state(CommState::StationConnected);
 
     return rc;
+}
+
+void ICommunicationInterface::onNodeChanged() {
+    if (this->state_event) {
+        LogStr("onNodeChanged signal_event\n");
+        this->state_event->Signal();
+    }
 }

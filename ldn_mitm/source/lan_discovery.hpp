@@ -66,6 +66,8 @@ class LANDiscovery {
             }
         };
         typedef std::function<int(LANPacketType, const void *, size_t)> ReplyFunc;
+        typedef std::function<void()> NodeEventFunc;
+        static const NodeEventFunc EmptyFunc;
     protected:
         // 0: udp 1: tcp
         std::array<struct pollfd, DiscoveryFds + NodeMaxCount> fds;
@@ -98,12 +100,13 @@ class LANDiscovery {
         Result getFakeMac(MacAddress *mac);
         Result getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion);
         u32 getBroadcast();
+        NodeEventFunc nodeEvent;
     public: 
         bool isHost;
         LANDiscovery(u16 port = DefaultPort) : stop(false), inited(false), networkInfo({0}), listenPort(port), isHost(false) {
             LogStr("LANDiscovery\n");
         };
-        Result initialize(bool listening = true);
+        Result initialize(NodeEventFunc nodeEvent = EmptyFunc, bool listening = true);
         ~LANDiscovery();
         Result initNetworkInfo();
         Result scan(NetworkInfo *networkInfo, u16 *count);
