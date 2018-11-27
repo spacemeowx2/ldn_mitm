@@ -106,6 +106,7 @@ class ICommunicationInterface : public IServiceObject {
         Result CloseStation();
         Result Disconnect();
         Result SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2);
+        Result SetStationAcceptPolicy(u8 policy);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
         Result Scan(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
@@ -130,6 +131,7 @@ class ICommunicationInterface : public IServiceObject {
             MakeServiceCommandMeta<LdnCommCmd_Connect, &ICommunicationInterface::Connect>(),
             MakeServiceCommandMeta<LdnCommCmd_Disconnect, &ICommunicationInterface::Disconnect>(),
             MakeServiceCommandMeta<LdnCommCmd_SetAdvertiseData, &ICommunicationInterface::SetAdvertiseData>(),
+            MakeServiceCommandMeta<LdnCommCmd_SetStationAcceptPolicy, &ICommunicationInterface::SetStationAcceptPolicy>(),
             MakeServiceCommandMeta<LdnCommCmd_Initialize, &ICommunicationInterface::Initialize>(),
             MakeServiceCommandMeta<LdnCommCmd_Finalize, &ICommunicationInterface::Finalize>(),
         };
