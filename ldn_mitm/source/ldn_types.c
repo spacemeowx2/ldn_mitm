@@ -5,7 +5,7 @@ void NetworkInfo2NetworkConfig(NetworkInfo* info, NetworkConfig* out) {
     out->intentId = info->networkId.intentId;
     out->channel = info->common.channel;
     out->nodeCountMax = info->ldn.nodeCountMax;
-    out->localCommunicationVersion = 1;
+    out->localCommunicationVersion = info->ldn.nodes[0].localCommunicationVersion;
 }
 
 void NetworkInfo2SecurityParameter(NetworkInfo* info, SecurityParameter* out) {

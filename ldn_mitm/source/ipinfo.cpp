@@ -1,4 +1,5 @@
 #include "ipinfo.hpp"
+#include <arpa/inet.h>
 
 static Service g_nifmSrv;
 static Service g_nifmIGS;
@@ -107,8 +108,8 @@ Result ipinfoGetIpConfig(u32* address, u32* netmask) {
     if (R_FAILED(rc)) {
         return rc;
     }
-    *address = resp->address;
-    *netmask = resp->netmask;
+    *address = ntohl(resp->address);
+    *netmask = ntohl(resp->netmask);
     // ret = resp->address | ~resp->netmask;
 
     return rc;

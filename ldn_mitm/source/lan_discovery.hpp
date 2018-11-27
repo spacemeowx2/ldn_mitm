@@ -73,6 +73,7 @@ class LANDiscovery {
         std::array<struct pollfd, DiscoveryFds + NodeMaxCount> fds;
         std::array<struct LANNode, NodeMaxCount> nodes;
         HosMutex fdsMutex;
+        HosMutex networkInfoMutex;
         std::unordered_map<MacAddress, NetworkInfo, MacHash, MacEquals> scanResults;
         int nodeCount();
         static void Worker(void* args);

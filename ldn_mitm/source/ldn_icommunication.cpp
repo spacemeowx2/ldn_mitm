@@ -232,7 +232,9 @@ Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<Netw
 
     Result rc = lanDiscovery.connect(data.pointer, &param.userConfig, param.localCommunicationVersion);
 
-    this->set_state(CommState::StationConnected);
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::StationConnected);
+    }
 
     return rc;
 }
@@ -241,5 +243,13 @@ void ICommunicationInterface::onNodeChanged() {
     if (this->state_event) {
         LogStr("onNodeChanged signal_event\n");
         this->state_event->Signal();
+    }
+    NetworkInfo info;
+    Result rc = lanDiscovery.getNetworkInfo(&info);
+    if (R_SUCCEEDED(rc)) {
+        LogStr("networkinfo:\n");
+        LogHex(&info, sizeof(info));
+    } else {
+        LogStr("Networkinfo failed\n");
     }
 }

@@ -13,6 +13,8 @@ const char *LANDiscovery::FakeSsid = "12345678123456781234567812345678";
 const LANDiscovery::NodeEventFunc LANDiscovery::EmptyFunc = [](){};
 
 Result LANDiscovery::setAdvertiseData(const u8 *data, uint16_t size) {
+    std::scoped_lock<HosMutex> lock(networkInfoMutex);
+
     if (size > AdvertiseDataSizeMax) {
         return MAKERESULT(ModuleID, 10);
     }
@@ -160,6 +162,7 @@ void LANDiscovery::onMessage(int index, LANPacketType type, const void *data, si
     switch (type) {
         case LANPacketType::scan: {
             if (isHost) {
+                std::scoped_lock<HosMutex> lock(networkInfoMutex);
                 reply(LANPacketType::scan_resp, &networkInfo, sizeof(networkInfo));
             }
             break;
@@ -192,6 +195,7 @@ void LANDiscovery::onMessage(int index, LANPacketType type, const void *data, si
             break;
         }
         case LANPacketType::sync_network: {
+            std::scoped_lock<HosMutex> lock(networkInfoMutex);
             LogStr("sync_network\n");
             NetworkInfo *info = (decltype(info))data;
             if (size != sizeof(*info)) {
@@ -235,7 +239,7 @@ int LANDiscovery::sendBroadcast(LANPacketType type, const void *data, size_t siz
     struct sockaddr_in addr;
 
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = getBroadcast();
+    addr.sin_addr.s_addr = htonl(getBroadcast());
     addr.sin_port = htons(listenPort);
 
     return sendTo(type, data, size, addr);
@@ -308,6 +312,7 @@ int LANDiscovery::nodeCount() {
 }
 
 void LANDiscovery::updateNodes() {
+    std::scoped_lock<HosMutex> lock(networkInfoMutex);
     int count = 0;
     for (int i = 0; i < NodeMaxCount; i++) {
         bool connected = nodes[i].status == NodeStatus::Connected;
@@ -554,6 +559,7 @@ void LANDiscovery::worker() {
 }
 
 Result LANDiscovery::getNetworkInfo(NetworkInfo *info) {
+    std::scoped_lock<HosMutex> lock(networkInfoMutex);
     std::memcpy(info, &networkInfo, sizeof(networkInfo));
     return 0;
 }
@@ -578,13 +584,8 @@ Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u
 }
 
 Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const UserConfig *userConfig, const NetworkConfig *networkConfig) {
+    std::scoped_lock<HosMutex> lock(networkInfoMutex);
     Result rc = 0;
-    u32 ip;
-
-    rc = ipinfoGetIpConfig(&ip);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
 
     rc = initNetworkInfo();
     if (R_FAILED(rc)) {
@@ -592,12 +593,15 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
     }
     networkInfo.ldn.nodeCountMax = networkConfig->nodeCountMax;
     networkInfo.ldn.securityMode = securityConfig->securityMode;
+    // memset(networkInfo.ldn.unkRandom, 0xFF, 16);
+
     if (networkConfig->channel == 0) {
         networkInfo.common.channel = 6;
     } else {
         networkInfo.common.channel = networkConfig->channel;
     }
     networkInfo.networkId.intentId = networkConfig->intentId;
+    // networkInfo.networkId.sessionId = {0x1122334455667788, 0x8877665544332211};
 
     rc = getNodeInfo(nodes[0].nodeInfo, userConfig, networkConfig->localCommunicationVersion);
     if (R_FAILED(rc)) {
@@ -636,7 +640,7 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
     u32 hostIp = networkInfo->ldn.nodes[0].ipv4Address;
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = hostIp;
+    addr.sin_addr.s_addr = htonl(hostIp);
     addr.sin_port = htons(listenPort);
     char buf[64];
     sprintf(buf, "connect hostIp %x\n", hostIp);
@@ -676,6 +680,8 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
 
     isHost = false;
 
+    svcSleepThread(1000000000L); // 1sec
+
     return 0;
 }
 
@@ -683,6 +689,7 @@ Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
     if (inited) {
         return 0;
     }
+    std::scoped_lock<HosMutex> lock(networkInfoMutex);
     this->nodeEvent = nodeEvent;
     for(auto &i : fds) {
         i.fd = -1;
