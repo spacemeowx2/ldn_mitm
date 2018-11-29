@@ -1,0 +1,14 @@
+Submodule libstratosphere contains modified content
+diff --git a/libstratosphere/include/stratosphere/ipc/ipc_serialization.hpp b/libstratosphere/include/stratosphere/ipc/ipc_serialization.hpp
+index 7ce9bd3..23af724 100644
+--- a/libstratosphere/include/stratosphere/ipc/ipc_serialization.hpp
++++ b/libstratosphere/include/stratosphere/ipc/ipc_serialization.hpp
+@@ -427,7 +427,7 @@ struct Decoder {
+         } else if constexpr (argT == ArgType::OutPointerClientSize || argT == ArgType::OutPointerServerSize) {
+             u16 sz;
+             if constexpr(argT == ArgType::OutPointerServerSize) {
+-                sz = T::element_size;
++                sz = T::element_size * T::num_elements;
+             } else {
+                 sz = *(const u16 *)((uintptr_t)ctx->request.Raw + 0x10 + c_sz_offset);
+             }
