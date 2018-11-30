@@ -32,12 +32,12 @@ enum LdnCommCmd {
     LdnCommCmd_AttachStateChangeEvent = 100,
     LdnCommCmd_GetNetworkInfoLatestUpdate = 101,
     LdnCommCmd_Scan = 102,
-    LdnCommCmd_ScanPrivate = 103,                       // nyi
+    LdnCommCmd_ScanPrivate = 103,
     LdnCommCmd_SetWirelessControllerRestriction = 104,  // nyi. Not sure the name of 104. guessed from smash
     LdnCommCmd_OpenAccessPoint = 200,
     LdnCommCmd_CloseAccessPoint = 201,
     LdnCommCmd_CreateNetwork = 202,
-    LdnCommCmd_CreateNetworkPrivate = 203,              // nyi
+    LdnCommCmd_CreateNetworkPrivate = 203,
     LdnCommCmd_DestroyNetwork = 204,
     LdnCommCmd_Reject = 205,                            // nyi
     LdnCommCmd_SetAdvertiseData = 206,
@@ -47,7 +47,7 @@ enum LdnCommCmd {
     LdnCommCmd_OpenStation = 300,
     LdnCommCmd_CloseStation = 301,
     LdnCommCmd_Connect = 302,
-    LdnCommCmd_ConnectPrivate = 303,                // nyi
+    LdnCommCmd_ConnectPrivate = 303,
     LdnCommCmd_Disconnect = 304,
     LdnCommCmd_Initialize = 400,
     LdnCommCmd_Finalize = 401,
@@ -110,6 +110,10 @@ class ICommunicationInterface : public IServiceObject {
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
         Result SetWirelessControllerRestriction();
+
+        Result CreateNetworkPrivate(SecurityConfig securityConfig, PrivateData priData, UserConfig userConfig, NetworkConfig networkConfig, InPointer<u8> buffer);
+        Result ConnectPrivate(SecurityConfig securityConfig, PrivateData priData, UserConfig userConfig, uint32_t localVersion, uint32_t option, PrivateData priData2);
+        Result ScanPrivate(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
             MakeServiceCommandMeta<LdnCommCmd_GetState, &ICommunicationInterface::GetState>(),
@@ -134,5 +138,9 @@ class ICommunicationInterface : public IServiceObject {
             MakeServiceCommandMeta<LdnCommCmd_SetStationAcceptPolicy, &ICommunicationInterface::SetStationAcceptPolicy>(),
             MakeServiceCommandMeta<LdnCommCmd_Initialize, &ICommunicationInterface::Initialize>(),
             MakeServiceCommandMeta<LdnCommCmd_Finalize, &ICommunicationInterface::Finalize>(),
+
+            MakeServiceCommandMeta<LdnCommCmd_CreateNetworkPrivate, &ICommunicationInterface::CreateNetworkPrivate>(),
+            MakeServiceCommandMeta<LdnCommCmd_ConnectPrivate, &ICommunicationInterface::ConnectPrivate>(),
+            MakeServiceCommandMeta<LdnCommCmd_ScanPrivate, &ICommunicationInterface::ScanPrivate>(),
         };
 };

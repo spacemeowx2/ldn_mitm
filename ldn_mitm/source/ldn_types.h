@@ -115,6 +115,10 @@ typedef struct {
 } ConnectNetworkData;
 
 typedef struct {
+    uint8_t raw[0x20];
+} PrivateData;
+
+typedef struct {
     uint8_t stateChange;
     uint8_t _unk[7];
 } NodeLatestUpdate;

@@ -256,3 +256,49 @@ void ICommunicationInterface::onNodeChanged() {
         LogFormat("Networkinfo failed");
     }
 }
+
+Result ICommunicationInterface::CreateNetworkPrivate(SecurityConfig securityConfig, PrivateData priData, UserConfig userConfig, NetworkConfig networkConfig, InPointer<u8> buffer) {
+    LogStr("CreateNetworkPrivate\n");
+    LogHex(armGetTls(), 0x100);
+    LogHex(buffer.pointer, buffer.num_elements);
+
+    Result rc = lanDiscovery.createNetwork(&securityConfig, &userConfig, &networkConfig);
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::AccessPointCreated);
+    }
+
+    return rc;
+}
+
+Result ICommunicationInterface::ConnectPrivate(SecurityConfig securityConfig, PrivateData priData, UserConfig userConfig, uint32_t localVersion, uint32_t option, PrivateData priData2) {
+    LogStr("ConnectPrivate\n");
+    LogHex(armGetTls(), 0x100);
+
+    char buf[64];
+    sprintf(buf, "ICommunicationInterface::ConnectPrivate %" PRIu64 "\n", data.num_elements);
+    LogStr(buf);
+    LogHex(data.pointer, sizeof(NetworkInfo));
+    LogHex(&param, sizeof(param));
+
+    Result rc = lanDiscovery.connect(data.pointer, &param.userConfig, param.localCommunicationVersion);
+
+    if (R_SUCCEEDED(rc)) {
+        this->set_state(CommState::StationConnected);
+    }
+
+    return rc;
+}
+
+Result ICommunicationInterface::ScanPrivate(Out<u32> outCount, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _) {
+    Result rc = 0;
+    u16 count = buffer.num_elements;
+
+    rc = lanDiscovery.scan(buffer.buffer, &count);
+    outCount.SetValue(count);
+
+    char buf[128];
+    sprintf(buf, "scan private %d %d\n", count, rc);
+    LogStr(buf);
+
+    return rc;
+}
