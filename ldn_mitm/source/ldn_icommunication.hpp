@@ -32,17 +32,18 @@ enum LdnCommCmd {
     LdnCommCmd_AttachStateChangeEvent = 100,
     LdnCommCmd_GetNetworkInfoLatestUpdate = 101,
     LdnCommCmd_Scan = 102,
-    LdnCommCmd_ScanPrivate = 103,                   // nyi
+    LdnCommCmd_ScanPrivate = 103,                       // nyi
+    LdnCommCmd_SetWirelessControllerRestriction = 104,  // nyi. Not sure the name of 104. guessed from smash
     LdnCommCmd_OpenAccessPoint = 200,
     LdnCommCmd_CloseAccessPoint = 201,
     LdnCommCmd_CreateNetwork = 202,
-    LdnCommCmd_CreateNetworkPrivate = 203,          // nyi
+    LdnCommCmd_CreateNetworkPrivate = 203,              // nyi
     LdnCommCmd_DestroyNetwork = 204,
-    LdnCommCmd_Reject = 205,                        // nyi
+    LdnCommCmd_Reject = 205,                            // nyi
     LdnCommCmd_SetAdvertiseData = 206,
-    LdnCommCmd_SetStationAcceptPolicy = 207,        // nyi
-    LdnCommCmd_AddAcceptFilterEntry = 208,          // nyi
-    LdnCommCmd_ClearAcceptFilter = 209,             // nyi
+    LdnCommCmd_SetStationAcceptPolicy = 207,            // nyi
+    LdnCommCmd_AddAcceptFilterEntry = 208,              // nyi
+    LdnCommCmd_ClearAcceptFilter = 209,                 // nyi
     LdnCommCmd_OpenStation = 300,
     LdnCommCmd_CloseStation = 301,
     LdnCommCmd_Connect = 302,
@@ -111,6 +112,7 @@ class ICommunicationInterface : public IServiceObject {
         Result Scan(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
+        Result SetWirelessControllerRestriction();
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
             MakeServiceCommandMeta<LdnCommCmd_GetState, &ICommunicationInterface::GetState>(),
@@ -122,6 +124,7 @@ class ICommunicationInterface : public IServiceObject {
             MakeServiceCommandMeta<LdnCommCmd_AttachStateChangeEvent, &ICommunicationInterface::AttachStateChangeEvent>(),
             MakeServiceCommandMeta<LdnCommCmd_GetNetworkInfoLatestUpdate, &ICommunicationInterface::GetNetworkInfoLatestUpdate>(),
             MakeServiceCommandMeta<LdnCommCmd_Scan, &ICommunicationInterface::Scan>(),
+            MakeServiceCommandMeta<LdnCommCmd_SetWirelessControllerRestriction, &ICommunicationInterface::SetWirelessControllerRestriction>(),
             MakeServiceCommandMeta<LdnCommCmd_OpenAccessPoint, &ICommunicationInterface::OpenAccessPoint>(),
             MakeServiceCommandMeta<LdnCommCmd_CloseAccessPoint, &ICommunicationInterface::CloseAccessPoint>(),
             MakeServiceCommandMeta<LdnCommCmd_CreateNetwork, &ICommunicationInterface::CreateNetwork>(),

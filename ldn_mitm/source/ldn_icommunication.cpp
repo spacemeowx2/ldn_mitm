@@ -115,6 +115,10 @@ Result ICommunicationInterface::SetStationAcceptPolicy(u8 policy) {
     return 0;
 }
 
+Result ICommunicationInterface::SetWirelessControllerRestriction() {
+    return 0;
+}
+
 Result ICommunicationInterface::GetState(Out<u32> state) {
     Result rc = 0;
 
