@@ -12,7 +12,7 @@ class LdnMitMService : public IMitmServiceObject {
     private:
         // std::shared_ptr<ICommunicationInterface> comm;
     public:
-        LdnMitMService(std::shared_ptr<Service> s) : IMitmServiceObject(s) {
+        LdnMitMService(std::shared_ptr<Service> s, u64 pid) : IMitmServiceObject(s, pid) {
             // comm = std::make_shared<ICommunicationInterface>();
             LogStr("LdnMitMService\n");
             /* ... */
