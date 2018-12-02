@@ -8,9 +8,7 @@ static_assert(sizeof(ConnectNetworkData) == 0x7C, "sizeof(ConnectNetworkData) sh
 Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     Result rc = 0;
 
-    char buf[128];
-    sprintf(buf, "ICommunicationInterface::Initialize unk: %" PRIu64 " pid: %" PRIu64 "\n", unk, pid.pid);
-    LogStr(buf);
+    LogFormat("ICommunicationInterface::Initialize unk: %" PRIu64 " pid: %" PRIu64, unk, pid.pid);
 
     if (this->state_event == nullptr) {
         this->state_event = CreateWriteOnlySystemEvent();
@@ -100,11 +98,8 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
 Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2) {
     Result rc = 0;
 
-    char buf[256];
-    sprintf(buf, "ICommunicationInterface::SetAdvertiseData length data1: %" PRIu64 " data2: %" PRIu64 "\n", data1.num_elements, data2.num_elements);
-    LogStr(buf);
-    sprintf(buf, "data1: %p data2: %p\n", data1.pointer, data2.buffer);
-    LogStr(buf);
+    LogFormat("ICommunicationInterface::SetAdvertiseData length data1: %" PRIu64 " data2: %" PRIu64, data1.num_elements, data2.num_elements);
+    LogFormat("data1: %p data2: %p", data1.pointer, data2.buffer);
 
     rc = lanDiscovery.setAdvertiseData(data1.pointer, data1.num_elements);
 
@@ -129,10 +124,8 @@ Result ICommunicationInterface::GetState(Out<u32> state) {
 
 Result ICommunicationInterface::GetIpv4Address(Out<u32> address, Out<u32> netmask) {
     Result rc = ipinfoGetIpConfig(address.GetPointer(), netmask.GetPointer());
-    char buf[64];
 
-    sprintf(buf, "get_ipv4_address %x %x\n", address.GetValue(), netmask.GetValue());
-    LogStr(buf);
+    LogFormat("get_ipv4_address %x %x", address.GetValue(), netmask.GetValue());
 
     return rc;
 }
@@ -140,9 +133,7 @@ Result ICommunicationInterface::GetIpv4Address(Out<u32> address, Out<u32> netmas
 Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkInfo, 1> buffer) {
     Result rc = 0;
 
-    char buf[128];
-    sprintf(buf, "get_network_info %p %" PRIu64 " state: %d\n", buffer.pointer, buffer.num_elements, static_cast<u32>(this->state));
-    LogStr(buf);
+    LogFormat("get_network_info %p %" PRIu64 " state: %d", buffer.pointer, buffer.num_elements, static_cast<u32>(this->state));
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
         // NetworkInfo info;
@@ -165,11 +156,8 @@ Result ICommunicationInterface::GetDisconnectReason(Out<u32> reason) {
 Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2) {
     Result rc = 0;
 
-    char buf[128];
-    sprintf(buf, "get_network_info_latest_update1 %p %" PRIu64 "\n", buffer1.pointer, buffer1.num_elements);
-    LogStr(buf);
-    sprintf(buf, "get_network_info_latest_update2 %p %" PRIu64 "\n", buffer2.pointer, buffer2.num_elements);
-    LogStr(buf);
+    LogFormat("get_network_info_latest_update1 %p %" PRIu64, buffer1.pointer, buffer1.num_elements);
+    LogFormat("get_network_info_latest_update2 %p %" PRIu64, buffer2.pointer, buffer2.num_elements);
 
     NodeLatestUpdate update = {0};
     update.stateChange = 0; // None
@@ -224,17 +212,13 @@ Result ICommunicationInterface::Scan(Out<u32> outCount, OutBuffer<NetworkInfo> b
     rc = lanDiscovery.scan(buffer.buffer, &count);
     outCount.SetValue(count);
 
-    char buf[128];
-    sprintf(buf, "scan %d %d\n", count, rc);
-    LogStr(buf);
+    LogFormat("scan %d %d", count, rc);
 
     return rc;
 }
 
 Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<NetworkInfo> data) {
-    char buf[64];
-    sprintf(buf, "ICommunicationInterface::connect %" PRIu64 "\n", data.num_elements);
-    LogStr(buf);
+    LogFormat("ICommunicationInterface::connect %" PRIu64, data.num_elements);
     LogHex(data.pointer, sizeof(NetworkInfo));
     LogHex(&param, sizeof(param));
 
@@ -249,15 +233,15 @@ Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<Netw
 
 void ICommunicationInterface::onNodeChanged() {
     if (this->state_event) {
-        LogStr("onNodeChanged signal_event\n");
+        LogFormat("onNodeChanged signal_event");
         this->state_event->Signal();
     }
     NetworkInfo info;
     Result rc = lanDiscovery.getNetworkInfo(&info);
     if (R_SUCCEEDED(rc)) {
-        LogStr("networkinfo:\n");
+        LogFormat("networkinfo:");
         LogHex(&info, sizeof(info));
     } else {
-        LogStr("Networkinfo failed\n");
+        LogFormat("Networkinfo failed");
     }
 }

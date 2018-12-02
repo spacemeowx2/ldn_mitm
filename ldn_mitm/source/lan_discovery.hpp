@@ -105,7 +105,7 @@ class LANDiscovery {
     public: 
         bool isHost;
         LANDiscovery(u16 port = DefaultPort) : stop(false), inited(false), networkInfo({0}), listenPort(port), isHost(false) {
-            LogStr("LANDiscovery\n");
+            LogFormat("LANDiscovery");
         };
         Result initialize(NodeEventFunc nodeEvent = EmptyFunc, bool listening = true);
         ~LANDiscovery();

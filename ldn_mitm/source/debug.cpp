@@ -20,7 +20,9 @@
 #include "debug.hpp"
 
 const size_t TlsBackupSize = 0x100;
-#define ENABLE_LOG 1
+#ifndef ENABLE_LOG
+#define ENABLE_LOG 0
+#endif
 
 #if ENABLE_LOG
 static Mutex g_file_mutex = 0;
@@ -29,19 +31,7 @@ static Mutex g_file_mutex = 0;
 #define RESTORE_TLS() memcpy(armGetTls(), _tls_backup, TlsBackupSize);
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
-void Reboot() {
-    /* ... */
-    LogStr("Reboot\n");
-}
-
-void Log(const void *data, int size) {
-    (void)(data);
-    (void)(size);
-    /* ... */
-#if 0
-    LogHex(data, size);
-#endif
-}
+void LogStr(const char *str);
 
 void LogHex(const void *data, int size) {
     (void)(data);
@@ -49,9 +39,7 @@ void LogHex(const void *data, int size) {
     /* ... */
 #if ENABLE_LOG
     u8 *dat = (u8 *)data;
-    char buf[128];
-    sprintf(buf, "Bin Log: %d (%p)\n", size, data);
-    LogStr(buf);
+    LogFormat("Bin Log: %d (%p)", size, data);
     for (int i = 0; i < size; i += 16) {
         int s = MIN(size - i, 16);
         buf[0] = 0;

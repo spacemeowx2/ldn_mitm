@@ -19,17 +19,34 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void Reboot();
-void Log(const void *data, int size);
 void LogHex(const void *data, int size);
-void LogStr(const char *str);
 void fatalLater(Result err);
 bool GetCurrentTime(u64 *out);
 
-#ifdef __cplusplus
+template<typename... TS>
+void LogFormat(const char *fmt, TS... args) {
+    void LogStr(const char *str);
+    char buf[256];
+    char mfmt[128];
+    u64 ts;
+    int rc = 0;
+
+    if (!GetCurrentTime(&ts)) {
+        LogStr("failed to get time\n");
+        return;
+    }
+
+    rc = snprintf(mfmt, sizeof(mfmt), "[%" PRIu64 "] %s\n", ts, fmt);
+    if (rc < 0 || rc >= static_cast<int>(sizeof(mfmt))) {
+        LogStr("fmt too long\n");
+        return;
+    }
+
+    rc = snprintf(buf, sizeof(buf), mfmt, args...);
+    if (rc < 0 || rc >= static_cast<int>(sizeof(buf))) {
+        LogStr("result string too long\n");
+        return;
+    }
+
+    LogStr(buf);
 }
-#endif

@@ -9,19 +9,13 @@ enum LdnSrvCmd {
 };
 
 class LdnMitMService : public IMitmServiceObject {      
-    private:
-        // std::shared_ptr<ICommunicationInterface> comm;
     public:
         LdnMitMService(std::shared_ptr<Service> s, u64 pid) : IMitmServiceObject(s, pid) {
-            // comm = std::make_shared<ICommunicationInterface>();
-            LogStr("LdnMitMService\n");
             /* ... */
         }
         
         static bool ShouldMitm(u64 pid, u64 tid) {
-            char buf[128];
-            sprintf(buf, "should_mitm pid: %" PRIu64 " tid: %" PRIu64 "\n", pid, tid);
-            LogStr(buf);
+            LogFormat("should_mitm pid: %" PRIu64 " tid: %" PRIu64, pid, tid);
             return true;
         }
         

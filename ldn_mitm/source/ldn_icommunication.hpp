@@ -70,12 +70,12 @@ class ICommunicationInterface : public IServiceObject {
         IEvent *state_event;
     public:
         ICommunicationInterface(): state(CommState::None), state_event(nullptr) {
-            LogStr("ICommunicationInterface\n");
+            LogFormat("ICommunicationInterface");
             /* ... */
         };
         
         ~ICommunicationInterface() {
-            LogStr("~ICommunicationInterface\n");
+            LogFormat("~ICommunicationInterface");
             /* ... */
             if (this->state_event) {
                 delete this->state_event;
@@ -85,7 +85,7 @@ class ICommunicationInterface : public IServiceObject {
         void set_state(CommState new_state) {
             this->state = new_state;
             if (this->state_event) {
-                LogStr("state_event signal_event\n");
+                LogFormat("state_event signal_event");
                 this->state_event->Signal();
             }
         }

@@ -11,7 +11,7 @@ static void printHex(const void *data, size_t size) {
     char buf[128];
     const u8 *d = data;
 memcpy(tls, armGetTls(), 0x100);
-    printf("printHex %p 0x%x\n", data, size);
+    printf("printHex %p 0x%lx\n", data, size);
 memcpy(armGetTls(), tls, 0x100);
     for (int i = 0; i < size; i+= 16) {
         buf[0] = 0;

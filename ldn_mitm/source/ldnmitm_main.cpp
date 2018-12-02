@@ -116,7 +116,7 @@ void __appInit(void) {
     }
 
     CheckAtmosphereVersion(0, 7, 0);
-    LogStr("__appInit done\n");
+    LogFormat("__appInit done");
 }
 
 void __appExit(void) {
@@ -138,7 +138,7 @@ using LdnMitmManager = WaitableManager<LdnMitmManagerOptions>;
 int main(int argc, char **argv)
 {
     consoleDebugInit(debugDevice_SVC);
-    LogStr("main\n");
+    LogFormat("main");
 
     /* TODO: What's a good timeout value to use here? */
     auto server_manager = new LdnMitmManager(5);
@@ -146,10 +146,8 @@ int main(int argc, char **argv)
     /* Create ldn:s mitm. */
     AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 61);
 
-    LogStr("main process\n");
     /* Loop forever, servicing our services. */
     server_manager->Process();
-    LogStr("main process done\n");
 
     return 0;
 }
