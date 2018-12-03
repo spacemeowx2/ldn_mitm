@@ -95,13 +95,10 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
     return rc;
 }
 
-Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data1, InBuffer<u8> data2) {
+Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data, InBuffer<u8> _) {
     Result rc = 0;
 
-    LogFormat("ICommunicationInterface::SetAdvertiseData length data1: %" PRIu64 " data2: %" PRIu64, data1.num_elements, data2.num_elements);
-    LogFormat("data1: %p data2: %p", data1.pointer, data2.buffer);
-
-    rc = lanDiscovery.setAdvertiseData(data1.pointer, data1.num_elements);
+    rc = lanDiscovery.setAdvertiseData(data.pointer, data.num_elements);
 
     return rc;
 }
@@ -205,7 +202,7 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u32> outCount, OutBuffer<NetworkInfo> buffer, OutPointerWithServerSize<u8, 0> _) {
+Result ICommunicationInterface::Scan(Out<u32> outCount, OutBuffer<NetworkInfo> buffer, OutPointerWithClientSize<NetworkInfo> _) {
     Result rc = 0;
     u16 count = buffer.num_elements;
 
