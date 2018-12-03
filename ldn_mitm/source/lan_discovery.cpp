@@ -698,7 +698,7 @@ Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
         return rc;
     }
 
-    if (R_FAILED(threadCreate(&worker_thread, &Worker, this, 0x4000, 0x15, 0))) {
+    if (R_FAILED(threadCreate(&worker_thread, &Worker, this, 0x4000, 0x15, 2))) {
         LogFormat("LANDiscovery Failed to threadCreate");
         return 0xF601;
     }
