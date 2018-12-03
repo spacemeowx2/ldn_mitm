@@ -57,7 +57,7 @@ void LogStr(const char *str) {
 #if ENABLE_LOG
     BACKUP_TLS();
     mutexLock(&g_file_mutex);
-    FILE *file = fopen("sdmc:/space.log", "ab+");
+    FILE *file = fopen("sdmc:/ldn_mitm.log", "ab+");
     if (file) {
         fwrite(str, 1, strlen(str), file);
         fclose(file);
