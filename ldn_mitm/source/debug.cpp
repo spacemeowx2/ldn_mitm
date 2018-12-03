@@ -39,6 +39,7 @@ void LogHex(const void *data, int size) {
     /* ... */
 #if ENABLE_LOG
     u8 *dat = (u8 *)data;
+    char buf[128];
     LogFormat("Bin Log: %d (%p)", size, data);
     for (int i = 0; i < size; i += 16) {
         int s = MIN(size - i, 16);
