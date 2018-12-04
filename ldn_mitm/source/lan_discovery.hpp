@@ -75,7 +75,6 @@ class LANDiscovery {
         HosMutex fdsMutex;
         HosMutex networkInfoMutex;
         std::unordered_map<MacAddress, NetworkInfo, MacHash, MacEquals> scanResults;
-        int nodeCount();
         static void Worker(void* args);
         bool stop;
         bool inited;
@@ -117,6 +116,7 @@ class LANDiscovery {
         Result connect(NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion);
         Result disconnect();
         Result getNetworkInfo(NetworkInfo *info);
+        int nodeCount();
     protected:
         Result setSocketOpts(int fd);
         Result initSocket(bool listening);

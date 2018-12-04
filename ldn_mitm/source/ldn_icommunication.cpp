@@ -239,6 +239,14 @@ Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<Netw
 }
 
 void ICommunicationInterface::onNodeChanged() {
+    if (this->lanDiscovery->nodeCount() == 0) {
+        // disconnected from host
+        if (this->state == CommState::StationConnected) {
+            this->set_state(CommState::Station);
+        }
+        return;
+    }
+
     if (this->state_event) {
         LogFormat("onNodeChanged signal_event");
         this->state_event->Signal();
