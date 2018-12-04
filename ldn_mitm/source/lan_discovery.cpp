@@ -574,7 +574,9 @@ Result LANDiscovery::getNetworkInfo(NetworkInfo *info, NodeLatestUpdate *pOutUpd
 
     for (int i = 0; i < bufferCount; i++) {
         pOutUpdates[i].stateChange = nodes[i].lastChange;
+        nodes[i].lastChange = NodeStateChange_None;
     }
+
     return 0;
 }
 
