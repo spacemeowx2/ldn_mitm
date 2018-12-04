@@ -65,7 +65,7 @@ enum class CommState {
 
 class ICommunicationInterface : public IServiceObject {
     private:
-        LANDiscovery lanDiscovery;
+        std::unique_ptr<LANDiscovery> lanDiscovery;
         CommState state;
         IEvent *state_event;
     public:
@@ -77,9 +77,6 @@ class ICommunicationInterface : public IServiceObject {
         ~ICommunicationInterface() {
             LogFormat("~ICommunicationInterface");
             /* ... */
-            if (this->state_event) {
-                delete this->state_event;
-            }
         };
     private:
         void set_state(CommState new_state) {
