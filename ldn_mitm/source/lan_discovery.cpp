@@ -342,8 +342,20 @@ void LANDiscovery::nodeClose(int nodeId) {
     close(node.pfd->fd);
     node.pfd->fd = -1;
     node.status = NodeStatus::Disconnected;
+    node.lastChange |= NodeStateChange_Disconnect;
 
     updateNodes();
+}
+
+void LANDiscovery::closeAllNodes() {
+    for (auto &node : nodes) {
+        if (node.status != NodeStatus::Disconnected) {
+            close(node.pfd->fd);
+            node.pfd->fd = -1;
+            node.status = NodeStatus::Disconnected;
+            node.lastChange = NodeStateChange_None;
+        }
+    }
 }
 
 int LANDiscovery::nodeRecv(int nodeId, u8 *buffer, size_t bufLen) {
@@ -464,6 +476,7 @@ void LANDiscovery::onNodeConnect() {
     nodes[i].status = NodeStatus::Connect;
     nodes[i].recvSize = 0;
     nodes[i].pfd->fd = new_fd;
+    nodes[i].lastChange |= NodeStateChange_Connect;
 }
 
 int LANDiscovery::loopPoll() {
@@ -551,6 +564,20 @@ Result LANDiscovery::getNetworkInfo(NetworkInfo *info) {
     return 0;
 }
 
+Result LANDiscovery::getNetworkInfo(NetworkInfo *info, NodeLatestUpdate *pOutUpdates, int bufferCount) {
+    std::scoped_lock<HosMutex> lock(networkInfoMutex);
+    std::memcpy(info, &networkInfo, sizeof(networkInfo));
+
+    if (bufferCount < 0 || bufferCount > NodeCountMax) {
+        return MAKERESULT(ModuleID, 50);
+    }
+
+    for (int i = 0; i < bufferCount; i++) {
+        pOutUpdates[i].stateChange = nodes[i].lastChange;
+    }
+    return 0;
+}
+
 Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion) {
     u32 ipAddress;
     Result rc = ipinfoGetIpConfig(&ipAddress);
@@ -580,7 +607,6 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
     }
     networkInfo.ldn.nodeCountMax = networkConfig->nodeCountMax;
     networkInfo.ldn.securityMode = securityConfig->securityMode;
-    // memset(networkInfo.ldn.unkRandom, 0xFF, 16);
 
     if (networkConfig->channel == 0) {
         networkInfo.common.channel = 6;
@@ -588,7 +614,6 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
         networkInfo.common.channel = networkConfig->channel;
     }
     networkInfo.networkId.intentId = networkConfig->intentId;
-    // networkInfo.networkId.sessionId = {0x1122334455667788, 0x8877665544332211};
 
     rc = getNodeInfo(nodes[0].nodeInfo, userConfig, networkConfig->localCommunicationVersion);
     if (R_FAILED(rc)) {
@@ -598,23 +623,28 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
 
     updateNodes();
 
+    for (auto &i : nodes) {
+        i.lastChange = NodeStateChange_None;
+    }
+
     isHost = true;
 
     return rc;
 }
 
 Result LANDiscovery::destroyNetwork() {
+    std::scoped_lock<HosMutex> lock(fdsMutex);
+
     isHost = false;
+    closeAllNodes();
 
     return 0;
 }
 
 Result LANDiscovery::disconnect() {
     std::scoped_lock<HosMutex> lock(fdsMutex);
-    if (nodes[0].pfd->fd != -1) {
-        close(nodes[0].pfd->fd);
-        nodes[0].pfd->fd = -1;
-    }
+
+    closeAllNodes();
 
     return 0;
 }
@@ -663,6 +693,10 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
         return MAKERESULT(ModuleID, 32);
     }
 
+    for (auto &i : nodes) {
+        i.lastChange = NodeStateChange_None;
+    }
+
     isHost = false;
 
     svcSleepThread(1000000000L); // 1sec
@@ -685,6 +719,7 @@ Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
         nodes[i].status = NodeStatus::Disconnected;
         nodes[i].pfd = &fds[DiscoveryFds + i];
         nodes[i].nodeInfo = &networkInfo.ldn.nodes[i];
+        nodes[i].lastChange = NodeStateChange_None;
     }
     Result rc = initSocket(listening);
     if (R_FAILED(rc)) {

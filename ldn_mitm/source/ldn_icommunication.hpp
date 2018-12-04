@@ -108,7 +108,7 @@ class ICommunicationInterface : public IServiceObject {
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
         Result Scan(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithClientSize<NetworkInfo> _);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
-        Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
+        Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
         Result SetWirelessControllerRestriction();
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {

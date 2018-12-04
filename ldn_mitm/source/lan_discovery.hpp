@@ -49,6 +49,7 @@ class LANDiscovery {
             u8 _reserved[2];
         };
         struct LANNode {
+            uint8_t lastChange;
             NodeInfo *nodeInfo;
             NodeStatus status;
             u8 buffer[BufferSize];
@@ -89,6 +90,7 @@ class LANDiscovery {
         void onNodeChanged(int fromIndex);
         void prepareHeader(LANPacketHeader &header, LANPacketType type);
         void updateNodes();
+        void closeAllNodes();
         int sendBroadcast(LANPacketType type, const void *data, size_t size);
         int sendBroadcast(LANPacketType type);
         int sendTo(LANPacketType type, const void *data, size_t size, struct sockaddr_in &addr);
@@ -116,6 +118,7 @@ class LANDiscovery {
         Result connect(NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion);
         Result disconnect();
         Result getNetworkInfo(NetworkInfo *info);
+        Result getNetworkInfo(NetworkInfo *info, NodeLatestUpdate *pOutUpdates, int bufferCount);
         int nodeCount();
     protected:
         Result setSocketOpts(int fd);

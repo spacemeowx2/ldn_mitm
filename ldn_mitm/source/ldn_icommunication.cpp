@@ -160,18 +160,14 @@ Result ICommunicationInterface::GetDisconnectReason(Out<u32> reason) {
     return 0;
 }
 
-Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2) {
+Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates) {
     Result rc = 0;
 
-    LogFormat("get_network_info_latest_update1 %p %" PRIu64, buffer1.pointer, buffer1.num_elements);
-    LogFormat("get_network_info_latest_update2 %p %" PRIu64, buffer2.pointer, buffer2.num_elements);
-
-    NodeLatestUpdate update = {0};
-    update.stateChange = 0; // None
+    LogFormat("get_network_info_latest buffer %p %" PRIu64, buffer.pointer, buffer.num_elements);
+    LogFormat("get_network_info_latest pUpdates %p %" PRIu64, pUpdates.pointer, pUpdates.num_elements);
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
-        rc = lanDiscovery->getNetworkInfo(buffer1.pointer);
-        memcpy(buffer2.pointer, &update, sizeof(update));
+        rc = lanDiscovery->getNetworkInfo(buffer.pointer, pUpdates.pointer, pUpdates.num_elements);
     } else {
         rc = 0x40CB; // ResultConnectionFailed
     }
