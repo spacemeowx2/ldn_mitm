@@ -143,7 +143,7 @@ int main(int argc, char **argv)
     /* TODO: What's a good timeout value to use here? */
     auto server_manager = new LdnMitmManager(5);
 
-    /* Create ldn:s mitm. */
+    /* Create ldn:u mitm. */
     AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 61);
 
     /* Loop forever, servicing our services. */
