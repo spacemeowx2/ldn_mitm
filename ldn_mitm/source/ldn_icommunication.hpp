@@ -103,12 +103,12 @@ class ICommunicationInterface : public IServiceObject {
         Result OpenStation();
         Result CloseStation();
         Result Disconnect();
-        Result SetAdvertiseData(InPointer<u8> data, InBuffer<u8> _);
+        Result SetAdvertiseData(InSmart<u8> data);
         Result SetStationAcceptPolicy(u8 policy);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithClientSize<NetworkInfo> _);
+        Result Scan(Out<u32> count, OutSmart<NetworkInfo> buffer);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
-        Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
+        Result GetNetworkInfoLatestUpdate(OutPointerWithClientSize<NodeLatestUpdate> pUpdates, OutPointerWithServerSize<NetworkInfo, 1> buffer);
         Result SetWirelessControllerRestriction();
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {

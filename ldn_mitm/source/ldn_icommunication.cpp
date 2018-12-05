@@ -105,10 +105,10 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
     return rc;
 }
 
-Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data, InBuffer<u8> _) {
+Result ICommunicationInterface::SetAdvertiseData(InSmart<u8> data) {
     Result rc = 0;
 
-    rc = lanDiscovery->setAdvertiseData(data.pointer, data.num_elements);
+    rc = lanDiscovery->setAdvertiseData(data.buffer, data.num_elements);
 
     return rc;
 }
@@ -160,7 +160,7 @@ Result ICommunicationInterface::GetDisconnectReason(Out<u32> reason) {
     return 0;
 }
 
-Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates) {
+Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithClientSize<NodeLatestUpdate> pUpdates, OutPointerWithServerSize<NetworkInfo, 1> buffer) {
     Result rc = 0;
 
     LogFormat("get_network_info_latest buffer %p %" PRIu64, buffer.pointer, buffer.num_elements);
@@ -208,7 +208,7 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u32> outCount, OutBuffer<NetworkInfo> buffer, OutPointerWithClientSize<NetworkInfo> _) {
+Result ICommunicationInterface::Scan(Out<u32> outCount, OutSmart<NetworkInfo> buffer) {
     Result rc = 0;
     u16 count = buffer.num_elements;
 
@@ -250,8 +250,8 @@ void ICommunicationInterface::onNodeChanged() {
     NetworkInfo info;
     Result rc = lanDiscovery->getNetworkInfo(&info);
     if (R_SUCCEEDED(rc)) {
-        LogFormat("networkinfo:");
-        LogHex(&info, sizeof(info));
+        // LogFormat("networkinfo:");
+        // LogHex(&info, sizeof(info));
     } else {
         LogFormat("Networkinfo failed");
     }

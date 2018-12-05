@@ -12,9 +12,6 @@
 #include <cstring>
 #include "ldn_types.h"
 
-// Only used when debuging
-#define DISABLE_COMPRESS 0
-
 class LANDiscovery {
     public:
         static const int BufferSize = 2048;

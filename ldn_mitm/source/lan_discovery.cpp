@@ -6,8 +6,10 @@
 #include <cstring>
 #include "ipinfo.hpp"
 
-static const int ModuleID = 0xFD;
+// Only used when debuging
+#define DISABLE_COMPRESS 0
 #define POLL_UNKNOWN (~(POLLIN | POLLPRI | POLLOUT))
+static const int ModuleID = 0xFD;
 
 const char *LANDiscovery::FakeSsid = "12345678123456781234567812345678";
 const LANDiscovery::NodeEventFunc LANDiscovery::EmptyFunc = [](){};
