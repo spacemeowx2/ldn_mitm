@@ -10,7 +10,7 @@ enum LdnSrvCmd {
 
 class LdnMitMService : public IMitmServiceObject {      
     public:
-        LdnMitMService(std::shared_ptr<Service> s, u64 pid) : IMitmServiceObject(s, pid) {
+        LdnMitMService(std::shared_ptr<Service> s) : IMitmServiceObject(s) {
             /* ... */
         }
         
