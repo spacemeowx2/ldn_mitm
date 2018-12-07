@@ -65,7 +65,7 @@ enum class CommState {
 
 class ICommunicationInterface : public IServiceObject {
     private:
-        LANDiscovery lanDiscovery;
+        std::unique_ptr<LANDiscovery> lanDiscovery;
         CommState state;
         IEvent *state_event;
     public:
@@ -77,9 +77,6 @@ class ICommunicationInterface : public IServiceObject {
         ~ICommunicationInterface() {
             LogFormat("~ICommunicationInterface");
             /* ... */
-            if (this->state_event) {
-                delete this->state_event;
-            }
         };
     private:
         void set_state(CommState new_state) {
@@ -106,12 +103,12 @@ class ICommunicationInterface : public IServiceObject {
         Result OpenStation();
         Result CloseStation();
         Result Disconnect();
-        Result SetAdvertiseData(InPointer<u8> data, InBuffer<u8> _);
+        Result SetAdvertiseData(InSmart<u8> data);
         Result SetStationAcceptPolicy(u8 policy);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u32> count, OutBuffer<NetworkInfo> buffer, OutPointerWithClientSize<NetworkInfo> _);
+        Result Scan(Out<u32> count, OutSmart<NetworkInfo> buffer);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
-        Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2);
+        Result GetNetworkInfoLatestUpdate(OutPointerWithClientSize<NodeLatestUpdate> pUpdates, OutPointerWithServerSize<NetworkInfo, 1> buffer);
         Result SetWirelessControllerRestriction();
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {

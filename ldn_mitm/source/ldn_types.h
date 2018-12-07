@@ -11,6 +11,13 @@ extern "C" {
 #define NodeCountMax 8
 #define PassphraseLengthMax 64
 
+enum NodeStateChange { 
+    NodeStateChange_None = 0, 
+    NodeStateChange_Connect = 1, 
+    NodeStateChange_Disconnect = 2, 
+    NodeStateChange_DisconnectAndConnect = 3 
+};
+
 typedef struct {
     uint8_t raw[6];
 } MacAddress;

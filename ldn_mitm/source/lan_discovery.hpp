@@ -12,9 +12,6 @@
 #include <cstring>
 #include "ldn_types.h"
 
-// Only used when debuging
-#define DISABLE_COMPRESS 0
-
 class LANDiscovery {
     public:
         static const int BufferSize = 2048;
@@ -49,6 +46,7 @@ class LANDiscovery {
             u8 _reserved[2];
         };
         struct LANNode {
+            uint8_t lastChange;
             NodeInfo *nodeInfo;
             NodeStatus status;
             u8 buffer[BufferSize];
@@ -75,7 +73,6 @@ class LANDiscovery {
         HosMutex fdsMutex;
         HosMutex networkInfoMutex;
         std::unordered_map<MacAddress, NetworkInfo, MacHash, MacEquals> scanResults;
-        int nodeCount();
         static void Worker(void* args);
         bool stop;
         bool inited;
@@ -90,6 +87,7 @@ class LANDiscovery {
         void onNodeChanged(int fromIndex);
         void prepareHeader(LANPacketHeader &header, LANPacketType type);
         void updateNodes();
+        void closeAllNodes();
         int sendBroadcast(LANPacketType type, const void *data, size_t size);
         int sendBroadcast(LANPacketType type);
         int sendTo(LANPacketType type, const void *data, size_t size, struct sockaddr_in &addr);
@@ -117,6 +115,8 @@ class LANDiscovery {
         Result connect(NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion);
         Result disconnect();
         Result getNetworkInfo(NetworkInfo *info);
+        Result getNetworkInfo(NetworkInfo *info, NodeLatestUpdate *pOutUpdates, int bufferCount);
+        int nodeCount();
     protected:
         Result setSocketOpts(int fd);
         Result initSocket(bool listening);

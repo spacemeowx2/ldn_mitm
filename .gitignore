@@ -73,3 +73,4 @@ dkms.conf
 .DS_Store
 
 make.bat
+*.log

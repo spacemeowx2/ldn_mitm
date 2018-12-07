@@ -14,7 +14,8 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
         this->state_event = CreateWriteOnlySystemEvent();
     }
 
-    rc = lanDiscovery.initialize([&](){
+    lanDiscovery = std::make_unique<LANDiscovery>();
+    rc = lanDiscovery->initialize([&](){
         this->onNodeChanged();
     });
     if (R_FAILED(rc)) {
@@ -27,6 +28,15 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
 }
 
 Result ICommunicationInterface::Finalize() {
+    if (this->state_event) {
+        delete this->state_event;
+        this->state_event = nullptr;
+    }
+
+    lanDiscovery.reset();
+
+    this->set_state(CommState::None);
+
     return 0;
 }
 
@@ -47,7 +57,7 @@ Result ICommunicationInterface::CloseAccessPoint() {
 }
 
 Result ICommunicationInterface::DestroyNetwork() {
-    Result rc = lanDiscovery.destroyNetwork();
+    Result rc = lanDiscovery->destroyNetwork();
 
     if (R_SUCCEEDED(rc)) {
         this->set_state(CommState::AccessPoint);
@@ -73,7 +83,7 @@ Result ICommunicationInterface::CloseStation() {
 }
 
 Result ICommunicationInterface::Disconnect() {
-    Result rc = lanDiscovery.disconnect();
+    Result rc = lanDiscovery->disconnect();
 
     if (R_SUCCEEDED(rc)) {
         this->set_state(CommState::Station);
@@ -87,7 +97,7 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
 
     LogHex(&data, 0x94);
 
-    rc = lanDiscovery.createNetwork(&data.securityConfig, &data.userConfig, &data.networkConfig);
+    rc = lanDiscovery->createNetwork(&data.securityConfig, &data.userConfig, &data.networkConfig);
     if (R_SUCCEEDED(rc)) {
         this->set_state(CommState::AccessPointCreated);
     }
@@ -95,10 +105,10 @@ Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
     return rc;
 }
 
-Result ICommunicationInterface::SetAdvertiseData(InPointer<u8> data, InBuffer<u8> _) {
+Result ICommunicationInterface::SetAdvertiseData(InSmart<u8> data) {
     Result rc = 0;
 
-    rc = lanDiscovery.setAdvertiseData(data.pointer, data.num_elements);
+    rc = lanDiscovery->setAdvertiseData(data.buffer, data.num_elements);
 
     return rc;
 }
@@ -134,9 +144,9 @@ Result ICommunicationInterface::GetNetworkInfo(OutPointerWithServerSize<NetworkI
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
         // NetworkInfo info;
-        // rc = lanDiscovery.getNetworkInfo(&info);
+        // rc = lanDiscovery->getNetworkInfo(&info);
         // std::memcpy(buffer.pointer, &info, sizeof(info));
-        rc = lanDiscovery.getNetworkInfo(buffer.pointer);
+        rc = lanDiscovery->getNetworkInfo(buffer.pointer);
     } else {
         rc = 0x40CB; // ResultConnectionFailed
     }
@@ -150,18 +160,14 @@ Result ICommunicationInterface::GetDisconnectReason(Out<u32> reason) {
     return 0;
 }
 
-Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer1, OutPointerWithServerSize<NodeLatestUpdate, 1> buffer2) {
+Result ICommunicationInterface::GetNetworkInfoLatestUpdate(OutPointerWithClientSize<NodeLatestUpdate> pUpdates, OutPointerWithServerSize<NetworkInfo, 1> buffer) {
     Result rc = 0;
 
-    LogFormat("get_network_info_latest_update1 %p %" PRIu64, buffer1.pointer, buffer1.num_elements);
-    LogFormat("get_network_info_latest_update2 %p %" PRIu64, buffer2.pointer, buffer2.num_elements);
-
-    NodeLatestUpdate update = {0};
-    update.stateChange = 0; // None
+    LogFormat("get_network_info_latest buffer %p %" PRIu64, buffer.pointer, buffer.num_elements);
+    LogFormat("get_network_info_latest pUpdates %p %" PRIu64, pUpdates.pointer, pUpdates.num_elements);
 
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
-        rc = lanDiscovery.getNetworkInfo(buffer1.pointer);
-        memcpy(buffer2.pointer, &update, sizeof(update));
+        rc = lanDiscovery->getNetworkInfo(buffer.pointer, pUpdates.pointer, pUpdates.num_elements);
     } else {
         rc = 0x40CB; // ResultConnectionFailed
     }
@@ -174,7 +180,7 @@ Result ICommunicationInterface::GetSecurityParameter(Out<SecurityParameter> out)
 
     SecurityParameter data;
     NetworkInfo info;
-    rc = lanDiscovery.getNetworkInfo(&info);
+    rc = lanDiscovery->getNetworkInfo(&info);
     if (R_SUCCEEDED(rc)) {
         NetworkInfo2SecurityParameter(&info, &data);
         out.SetValue(data);
@@ -188,7 +194,7 @@ Result ICommunicationInterface::GetNetworkConfig(Out<NetworkConfig> out) {
 
     NetworkConfig data;
     NetworkInfo info;
-    rc = lanDiscovery.getNetworkInfo(&info);
+    rc = lanDiscovery->getNetworkInfo(&info);
     if (R_SUCCEEDED(rc)) {
         NetworkInfo2NetworkConfig(&info, &data);
         out.SetValue(data);
@@ -202,11 +208,11 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u32> outCount, OutBuffer<NetworkInfo> buffer, OutPointerWithClientSize<NetworkInfo> _) {
+Result ICommunicationInterface::Scan(Out<u32> outCount, OutSmart<NetworkInfo> buffer) {
     Result rc = 0;
     u16 count = buffer.num_elements;
 
-    rc = lanDiscovery.scan(buffer.buffer, &count);
+    rc = lanDiscovery->scan(buffer.buffer, &count);
     outCount.SetValue(count);
 
     LogFormat("scan %d %d", count, rc);
@@ -219,7 +225,7 @@ Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<Netw
     LogHex(data.pointer, sizeof(NetworkInfo));
     LogHex(&param, sizeof(param));
 
-    Result rc = lanDiscovery.connect(data.pointer, &param.userConfig, param.localCommunicationVersion);
+    Result rc = lanDiscovery->connect(data.pointer, &param.userConfig, param.localCommunicationVersion);
 
     if (R_SUCCEEDED(rc)) {
         this->set_state(CommState::StationConnected);
@@ -229,15 +235,23 @@ Result ICommunicationInterface::Connect(ConnectNetworkData param, InPointer<Netw
 }
 
 void ICommunicationInterface::onNodeChanged() {
+    if (this->lanDiscovery->nodeCount() == 0) {
+        // disconnected from host
+        if (this->state == CommState::StationConnected) {
+            this->set_state(CommState::Station);
+        }
+        return;
+    }
+
     if (this->state_event) {
         LogFormat("onNodeChanged signal_event");
         this->state_event->Signal();
     }
     NetworkInfo info;
-    Result rc = lanDiscovery.getNetworkInfo(&info);
+    Result rc = lanDiscovery->getNetworkInfo(&info);
     if (R_SUCCEEDED(rc)) {
-        LogFormat("networkinfo:");
-        LogHex(&info, sizeof(info));
+        // LogFormat("networkinfo:");
+        // LogHex(&info, sizeof(info));
     } else {
         LogFormat("Networkinfo failed");
     }
