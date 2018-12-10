@@ -19,7 +19,7 @@
 #include <stratosphere.hpp>
 #include "debug.hpp"
 #include "lan_discovery.hpp"
-#include "ldn_types.h"
+#include "ldn_types.hpp"
 #include "ipinfo.hpp"
 
 enum LdnCommCmd {
@@ -106,7 +106,7 @@ class ICommunicationInterface : public IServiceObject {
         Result SetAdvertiseData(InSmartBuffer<u8> data);
         Result SetStationAcceptPolicy(u8 policy);
         Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u32> count, OutSmartBuffer<NetworkInfo> buffer);
+        Result Scan(Out<u32> count, OutSmartBuffer<NetworkInfo> buffer, u16 channel, ScanFilter filter);
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
         Result SetWirelessControllerRestriction();

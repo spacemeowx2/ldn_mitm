@@ -35,8 +35,7 @@ Result LANDiscovery::initNetworkInfo() {
     this->networkInfo.common.channel = 6;
     this->networkInfo.common.linkLevel = 3;
     this->networkInfo.common.networkType = 2;
-    this->networkInfo.common.ssidLength = strlen(FakeSsid);
-    strcpy(this->networkInfo.common.ssid, FakeSsid);
+    this->networkInfo.common.ssid = FakeSsid;
 
     auto nodes = this->networkInfo.ldn.nodes;
     for (int i = 0; i < NodeCountMax; i++) {
@@ -211,7 +210,7 @@ void LANDiscovery::onMessage(int index, LANPacketType type, const void *data, si
     }
 }
 
-Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count) {
+Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filter) {
     scanResults.clear();
 
     int len = sendBroadcast(LANPacketType::scan);
@@ -222,11 +221,33 @@ Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count) {
     svcSleepThread(1000000000L); // 1sec
 
     int i = 0;
-    for (auto item : scanResults) {
+    for (auto& item : scanResults) {
         if (i >= *count) {
             break;
         }
-        networkInfo[i++] = item.second;
+        auto &info = item.second;
+
+        bool copy = true;
+        // filter
+        if (filter.flag & ScanFilterFlag_LocalCommunicationId) {
+            copy &= filter.networkId.intentId.localCommunicationId == info.networkId.intentId.localCommunicationId;
+        }
+        if (filter.flag & ScanFilterFlag_SessionId) {
+            copy &= filter.networkId.sessionId == info.networkId.sessionId;
+        }
+        if (filter.flag & ScanFilterFlag_NetworkType) {
+            copy &= filter.networkType == info.common.networkType;
+        }
+        if (filter.flag & ScanFilterFlag_Ssid) {
+            copy &= filter.ssid == info.common.ssid;
+        }
+        if (filter.flag & ScanFilterFlag_SceneId) {
+            copy &= filter.networkId.intentId.sceneId == info.networkId.intentId.sceneId;
+        }
+
+        if (copy) {
+            networkInfo[i++] = info;
+        }
     }
     *count = i;
 

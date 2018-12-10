@@ -1,10 +1,6 @@
 #pragma once
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define SsidLengthMax 32
 #define AdvertiseDataSizeMax 384
 #define UserNameBytesMax 32
@@ -17,22 +13,38 @@ enum NodeStateChange {
     NodeStateChange_Disconnect = 2, 
     NodeStateChange_DisconnectAndConnect = 3 
 };
+enum ScanFilterFlag {
+    ScanFilterFlag_LocalCommunicationId = 1 << 0,
+    ScanFilterFlag_SessionId = 1 << 1,
+    ScanFilterFlag_NetworkType = 1 << 2,
+    ScanFilterFlag_Ssid = 1 << 4,
+    ScanFilterFlag_SceneId = 1 << 5,
+    ScanFilterFlag_IntentId = ScanFilterFlag_LocalCommunicationId | ScanFilterFlag_SceneId,
+    ScanFilterFlag_NetworkId = ScanFilterFlag_IntentId | ScanFilterFlag_SessionId
+};
 
-typedef struct {
+struct MacAddress {
     uint8_t raw[6];
-} MacAddress;
+    bool operator==(const MacAddress& b) const;
+};
 
-typedef struct {
+struct Ssid {
+    uint8_t length;
+    char raw[SsidLengthMax + 1];
+    bool operator==(const Ssid& b) const;
+    Ssid& operator=(const char* s);
+};
+
+struct CommonNetworkInfo {
     MacAddress bssid;
-    uint8_t ssidLength;
-    char ssid[SsidLengthMax + 1];
+    Ssid ssid;
     int16_t channel;
     int8_t linkLevel;
     uint8_t networkType;
     uint32_t _unk;
-} CommonNetworkInfo;
+};
 
-typedef struct {
+struct NodeInfo {
     uint32_t ipv4Address;
     MacAddress macAddress;
     int8_t nodeId;
@@ -41,9 +53,9 @@ typedef struct {
     uint8_t _unk1;
     int16_t localCommunicationVersion;
     uint8_t _unk2[16];
-} NodeInfo;
+};
 
-typedef struct {
+struct LdnNetworkInfo {
     uint8_t unkRandom[16];
     uint16_t securityMode;
     uint8_t stationAcceptPolicy;
@@ -55,78 +67,84 @@ typedef struct {
     uint16_t advertiseDataSize;
     uint8_t advertiseData[AdvertiseDataSizeMax];
     uint8_t _unk3[148];
-} LdnNetworkInfo;
+};
 
-typedef struct {
+struct IntentId {
     uint64_t localCommunicationId;
     uint8_t _unk1[2];
     uint16_t sceneId;
     uint8_t _unk2[4];
-} IntentId;
+};
 
-typedef struct {
+struct SessionId {
     uint64_t high;
     uint64_t low;
-} SessionId;
+    bool operator==(const SessionId& b) const;
+};
 
-typedef struct {
+struct NetworkId {
     IntentId intentId;      // 16bytes
     SessionId sessionId;    // 16bytes
-} NetworkId;                // 32bytes
+};                // 32bytes
 
-typedef struct {
+struct NetworkInfo {
     NetworkId networkId;
     CommonNetworkInfo common;
     LdnNetworkInfo ldn;
-} NetworkInfo;
+};
 
-typedef struct {
+struct SecurityConfig {
     uint16_t securityMode;
     uint16_t passphraseSize;
     uint8_t passphrase[PassphraseLengthMax];
-} SecurityConfig;
+};
 
-typedef struct {
+struct UserConfig {
     char userName[UserNameBytesMax + 1];
     uint8_t _unk[15];
-} UserConfig;
+};
 
-typedef struct {
+struct NetworkConfig {
     IntentId intentId;      // 16byte
     uint16_t channel;
     uint8_t nodeCountMax;
     uint8_t _unk1;
     uint16_t localCommunicationVersion;
     uint8_t _unk2[10];
-} NetworkConfig;            // 32bytes
+};            // 32bytes
 
-typedef struct {
+struct CreateNetworkConfig {
     SecurityConfig securityConfig;
     UserConfig userConfig;
     uint8_t _unk[4];
     NetworkConfig networkConfig;
-} CreateNetworkConfig;
+};
 
-typedef struct {
+struct ConnectNetworkData {
     SecurityConfig securityConfig;
     UserConfig userConfig;
     uint32_t localCommunicationVersion;
     uint32_t option;
-} ConnectNetworkData;
+};
 
-typedef struct {
+struct NodeLatestUpdate {
     uint8_t stateChange;
     uint8_t _unk[7];
-} NodeLatestUpdate;
+};
 
-typedef struct {
+struct SecurityParameter {
     uint8_t unkRandom[16];
     SessionId sessionId;
-} SecurityParameter;
+};
+
+struct ScanFilter {
+    NetworkId networkId;
+    uint32_t networkType;
+    MacAddress bssid;
+    Ssid ssid;
+    uint8_t unk[16];
+    uint32_t flag;
+};
 
 void NetworkInfo2NetworkConfig(NetworkInfo* info, NetworkConfig* out);
 void NetworkInfo2SecurityParameter(NetworkInfo* info, SecurityParameter* out);
-
-#ifdef __cplusplus
-}
-#endif

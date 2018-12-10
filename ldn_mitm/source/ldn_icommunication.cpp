@@ -2,6 +2,7 @@
 
 static_assert(sizeof(NetworkInfo) == 0x480, "sizeof(NetworkInfo) should be 0x480");
 static_assert(sizeof(ConnectNetworkData) == 0x7C, "sizeof(ConnectNetworkData) should be 0x7C");
+static_assert(sizeof(ScanFilter) == 0x60, "sizeof(ScanFilter) should be 0x60");
 
 // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
@@ -208,11 +209,11 @@ Result ICommunicationInterface::AttachStateChangeEvent(Out<CopiedHandle> handle)
     return 0;
 }
 
-Result ICommunicationInterface::Scan(Out<u32> outCount, OutSmartBuffer<NetworkInfo> buffer) {
+Result ICommunicationInterface::Scan(Out<u32> outCount, OutSmartBuffer<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
     Result rc = 0;
     u16 count = buffer.num_elements;
 
-    rc = lanDiscovery->scan(buffer.buffer, &count);
+    rc = lanDiscovery->scan(buffer.buffer, &count, filter);
     outCount.SetValue(count);
 
     LogFormat("scan %d %d", count, rc);

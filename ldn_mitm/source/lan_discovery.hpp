@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <cstring>
-#include "ldn_types.h"
+#include "ldn_types.hpp"
 
 class LANDiscovery {
     public:
@@ -58,11 +58,6 @@ class LANDiscovery {
                 return *reinterpret_cast<const u32*>(t.raw + 2);
             }
         };
-        struct MacEquals {
-            bool operator() (const MacAddress& lhs, const MacAddress& rhs) const {
-                return std::memcmp(&lhs, &rhs, sizeof(MacAddress)) == 0;
-            }
-        };
         typedef std::function<int(LANPacketType, const void *, size_t)> ReplyFunc;
         typedef std::function<void()> NodeEventFunc;
         static const NodeEventFunc EmptyFunc;
@@ -72,7 +67,7 @@ class LANDiscovery {
         std::array<struct LANNode, NodeMaxCount> nodes;
         HosMutex fdsMutex;
         HosMutex networkInfoMutex;
-        std::unordered_map<MacAddress, NetworkInfo, MacHash, MacEquals> scanResults;
+        std::unordered_map<MacAddress, NetworkInfo, MacHash> scanResults;
         static void Worker(void* args);
         bool stop;
         bool inited;
@@ -108,7 +103,7 @@ class LANDiscovery {
         Result initialize(NodeEventFunc nodeEvent = EmptyFunc, bool listening = true);
         ~LANDiscovery();
         Result initNetworkInfo();
-        Result scan(NetworkInfo *networkInfo, u16 *count);
+        Result scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filter);
         Result setAdvertiseData(const u8 *data, uint16_t size);
         Result createNetwork(const SecurityConfig *securityConfig, const UserConfig *userConfig, const NetworkConfig *networkConfig);
         Result destroyNetwork();
