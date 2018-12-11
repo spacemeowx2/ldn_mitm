@@ -26,13 +26,13 @@ typedef struct {
 
 typedef struct {
     uint32_t ipv4Address;
-	uint8_t macAddress[6];
+    uint8_t macAddress[6];
     int8_t nodeId;
     int8_t isConnected;
     char userName[UserNameBytesMax+1];
-	uint8_t _unk1;
+    uint8_t _unk1;
     int16_t localCommunicationVersion;
-	uint8_t _unk2[16];
+    uint8_t _unk2[16];
 } NodeInfo;
 
 typedef struct {
@@ -46,7 +46,7 @@ typedef struct {
     uint16_t _unk2;
     uint16_t advertiseDataSize;
     uint8_t advertiseData[AdvertiseDataSizeMax];
-	char _unk3[148];
+    char _unk3[148];
 } LdnNetworkInfo;
 
 typedef struct {
