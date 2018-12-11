@@ -8,7 +8,7 @@ TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/libnx/switch_rules
 
 APP_AUTHOR  :=  spacemeowx2
-APP_TITLE   :=  ldn_example
+APP_TITLE   :=  ldn_mitm_debug
 APP_VERSION :=  1.0.0
 
 TARGET		:=	$(notdir $(CURDIR))
