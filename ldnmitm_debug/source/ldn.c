@@ -210,3 +210,91 @@ Result ldnCreateUserLocalCommunicationService(Service* s, UserLocalCommunication
 
     return rc;
 }
+
+Result ldnMitmGetVersion(char *version) {
+    Result rc = 0;
+    Service s;
+
+    rc = smGetService(&s, "ldnmitm");
+    if (R_FAILED(rc)) {
+        goto quit;
+    }
+
+    IpcCommand c;
+    ipcInitialize(&c);
+
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(&s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65001;
+
+    rc = serviceIpcDispatch(&s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+            char version[32];
+        } *resp;
+        
+        serviceIpcParse(&s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+        if (R_SUCCEEDED(rc)) {
+            strcpy(version, resp->version);
+        }
+    }
+    serviceClose(&s);
+
+quit:
+    return rc;
+}
+
+Result ldnMitmSaveLogToFile() {
+    Result rc = 0;
+    Service s;
+
+    rc = smGetService(&s, "ldnmitm");
+    if (R_FAILED(rc)) {
+        goto quit;
+    }
+
+    IpcCommand c;
+    ipcInitialize(&c);
+
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(&s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65000;
+
+    rc = serviceIpcDispatch(&s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+        } *resp;
+        
+        serviceIpcParse(&s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+    }
+    serviceClose(&s);
+
+quit:
+    return rc;
+}

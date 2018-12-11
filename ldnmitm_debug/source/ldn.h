@@ -122,6 +122,8 @@ Result ldnCreateUserLocalCommunicationService(Service* s, UserLocalCommunication
 Result ldnInitialize(UserLocalCommunicationService* s);
 Result ldnOpenStation(UserLocalCommunicationService* s);
 Result ldnGetState(UserLocalCommunicationService* s, u32* state);
+Result ldnMitmSaveLogToFile();
+Result ldnMitmGetVersion(char *version);
 void NetworkInfo2NetworkConfig(NetworkInfo* info, NetworkConfig* out);
 void NetworkInfo2SecurityParameter(NetworkInfo* info, SecurityParameter* out);
 

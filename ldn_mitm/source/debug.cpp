@@ -107,12 +107,14 @@ void LogStr(const char *str) {
 
 bool SaveLogToFile() {
 #if ENABLE_MEMLOG
+    u64 curtime;
+    if (!GetCurrentTime(&curtime)) {
+        return false;
+    }
     mutexLock(&MemoryLogMutex);
     FILE *file = fopen("sdmc:/ldn_mitm_memlog.log", "ab+");
     if (file) {
-        time_t curtime;
-        time(&curtime);
-        fprintf(file, "ldn_mitm memory log dump\nversion: " GITDESCVER "\ntime: %s\n", ctime(&curtime));
+        fprintf(file, "ldn_mitm memory log dump\nversion: " GITDESCVER "\ntimestamp: %" PRIu64 "\n\n", curtime);
         fwrite(MemoryLog, 1, MemoryLogPos, file);
         fclose(file);
     }

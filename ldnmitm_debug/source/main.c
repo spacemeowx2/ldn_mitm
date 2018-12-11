@@ -63,11 +63,32 @@ quit:
     return rc;
 }
 
+Result saveLogToFile() {
+    char version[32];
+    Result rc = 0;
+    rc = ldnMitmGetVersion(version);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+    printf("LdnMitm version: %s\n", version);
+    rc = ldnMitmSaveLogToFile();
+    if (R_FAILED(rc)) {
+        printf("Save log to file failed\n");
+        return rc;
+    }
+
+    return rc;
+}
+
 int main() {
     gfxInitDefault();
     consoleInit(NULL);
 
-    printf("ldn_example\n");
+    printf("ldnmitm_debug\n");
+    printf("Press A: test ldn scan command\n");
+    printf("Press Y: print version and export log to sd card\n");
+    printf("Press B: exit\n");
+
     u16 num = 1;
     while(appletMainLoop()) {
         hidScanInput();
@@ -75,6 +96,12 @@ int main() {
 
         if (kDown & KEY_B) {
             break;
+        }
+
+        if (kDown & KEY_Y) {
+            printf("Start saveLogToFile\n");
+            Result rc = saveLogToFile();
+            printf("saveLogToFile exited with %x\n", rc);
         }
 
         if (kDown & KEY_A) {

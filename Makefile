@@ -1,5 +1,5 @@
 KIPS := ldn_mitm
-NROS := ldn_example
+NROS := ldnmitm_debug
 
 SUBFOLDERS := libstratosphere $(KIPS) $(NROS)
 
