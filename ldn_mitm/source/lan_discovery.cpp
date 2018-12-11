@@ -101,6 +101,7 @@ Result LANDiscovery::initSocket(bool listening) {
     if (fd < 0) {
         return MAKERESULT(ModuleID, 1);
     }
+    fds[FdUdp].fd = fd;
 
     if (listening) {
         addr.sin_family = AF_INET;
@@ -114,12 +115,13 @@ Result LANDiscovery::initSocket(bool listening) {
     if (R_FAILED(rc)) {
         return rc;
     }
-    fds[FdUdp].fd = fd;
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
         return MAKERESULT(ModuleID, 6);
     }
+    fds[FdTcp].fd = fd;
+
     if (listening) {
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htons(INADDR_ANY);
@@ -135,7 +137,6 @@ Result LANDiscovery::initSocket(bool listening) {
     if (R_FAILED(rc)) {
         return rc;
     }
-    fds[FdTcp].fd = fd;
 
     return 0;
 }
@@ -581,15 +582,15 @@ void LANDiscovery::worker() {
     svcExitThread();
 }
 
-Result LANDiscovery::getNetworkInfo(NetworkInfo *info) {
+Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork) {
     std::scoped_lock<HosMutex> lock(networkInfoMutex);
-    std::memcpy(info, &networkInfo, sizeof(networkInfo));
+    std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
     return 0;
 }
 
-Result LANDiscovery::getNetworkInfo(NetworkInfo *info, NodeLatestUpdate *pOutUpdates, int bufferCount) {
+Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork, NodeLatestUpdate *pOutUpdates, int bufferCount) {
     std::scoped_lock<HosMutex> lock(networkInfoMutex);
-    std::memcpy(info, &networkInfo, sizeof(networkInfo));
+    std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
 
     if (bufferCount < 0 || bufferCount > NodeCountMax) {
         return MAKERESULT(ModuleID, 50);
@@ -733,6 +734,7 @@ Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
     if (inited) {
         return 0;
     }
+
     std::scoped_lock<HosMutex> lock(networkInfoMutex);
     this->nodeEvent = nodeEvent;
     for(auto &i : fds) {
@@ -749,7 +751,7 @@ Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
     Result rc = initSocket(listening);
     if (R_FAILED(rc)) {
         LogFormat("initSocket %x", rc);
-        return 0xF601;
+        return rc;
     }
 
     rc = initNetworkInfo();

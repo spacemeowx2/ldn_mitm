@@ -22,6 +22,15 @@ enum ScanFilterFlag {
     ScanFilterFlag_IntentId = ScanFilterFlag_LocalCommunicationId | ScanFilterFlag_SceneId,
     ScanFilterFlag_NetworkId = ScanFilterFlag_IntentId | ScanFilterFlag_SessionId
 };
+enum class CommState {
+    None,
+    Initialized,
+    AccessPoint,
+    AccessPointCreated,
+    Station,
+    StationConnected,
+    Error
+};
 
 struct MacAddress {
     uint8_t raw[6];

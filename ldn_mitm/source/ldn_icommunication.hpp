@@ -53,16 +53,6 @@ enum LdnCommCmd {
     LdnCommCmd_Finalize = 401,
 };
 
-enum class CommState {
-    None,
-    Initialized,
-    AccessPoint,
-    AccessPointCreated,
-    Station,
-    StationConnected,
-    Error
-};
-
 class ICommunicationInterface : public IServiceObject {
     private:
         std::unique_ptr<LANDiscovery> lanDiscovery;

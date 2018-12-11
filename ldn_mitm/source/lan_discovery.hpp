@@ -22,10 +22,6 @@ class LANDiscovery {
         static const int FdTcp = 1;
         static const u32 LANMagic = 0x11451400;
         static const char *FakeSsid;
-        struct PayloadScanResponse {
-            u16 size;
-            u8 data[sizeof(NetworkInfo)];
-        };
         enum class LANPacketType : u8 {
             scan,
             scan_resp,
@@ -109,8 +105,8 @@ class LANDiscovery {
         Result destroyNetwork();
         Result connect(NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion);
         Result disconnect();
-        Result getNetworkInfo(NetworkInfo *info);
-        Result getNetworkInfo(NetworkInfo *info, NodeLatestUpdate *pOutUpdates, int bufferCount);
+        Result getNetworkInfo(NetworkInfo *pOutNetwork);
+        Result getNetworkInfo(NetworkInfo *pOutNetwork, NodeLatestUpdate *pOutUpdates, int bufferCount);
         int nodeCount();
     protected:
         Result setSocketOpts(int fd);
