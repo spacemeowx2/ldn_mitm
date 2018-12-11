@@ -22,6 +22,7 @@
 void LogHex(const void *data, int size);
 void fatalLater(Result err);
 bool GetCurrentTime(u64 *out);
+bool SaveLogToFile();
 
 template<typename... TS>
 void LogFormat(const char *fmt, TS... args) {

@@ -1,3 +1,5 @@
+GITDESCVER := $(shell git describe --tags)
+
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 #---------------------------------------------------------------------------------
@@ -21,10 +23,10 @@ TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source
 DATA		:=	data
-INCLUDES	:=	include ../common/include
+INCLUDES	:=	include
 EXEFS_SRC	:=	exefs_src
 
-DEFINES	:=	-DDISABLE_IPC
+DEFINES	:=	-DDISABLE_IPC -DGITDESCVER="\"${GITDESCVER}\""
 
 #---------------------------------------------------------------------------------
 # options for code generation

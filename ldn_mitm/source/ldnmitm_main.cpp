@@ -133,18 +133,36 @@ struct LdnMitmManagerOptions {
     static const size_t MaxDomains = 0x10;
     static const size_t MaxDomainObjects = 0x100;
 };
-using LdnMitmManager = WaitableManager<LdnMitmManagerOptions>;
+class LdnServiceSession : public ServiceSession {
+    public:
+        LdnServiceSession(Handle s_h, size_t pbs, ServiceObjectHolder &&h)  : ServiceSession(s_h, pbs, std::move(h)) { }
+
+        virtual void PreProcessRequest(IpcResponseContext *ctx) {
+            LogFormat("Request cmd_id %" PRIu64 " type %d", ctx->cmd_id, ctx->cmd_type);
+        }
+        virtual void PostProcessResponse(IpcResponseContext *ctx) {
+            LogFormat("Reply rc %d", ctx->rc);
+        }
+};
+template<typename ManagerOptions = LdnMitmManagerOptions>
+class LdnMitmManager : public WaitableManager<ManagerOptions> {
+    public:
+        LdnMitmManager(u32 n, u32 ss = 0x8000) : WaitableManager<ManagerOptions>(n, ss) {}
+        virtual void AddSession(Handle server_h, ServiceObjectHolder &&service) override {
+            this->AddWaitable(new LdnServiceSession(server_h, ManagerOptions::PointerBufferSize, std::move(service)));
+        }
+};
 
 int main(int argc, char **argv)
 {
-    consoleDebugInit(debugDevice_SVC);
     LogFormat("main");
 
     /* TODO: What's a good timeout value to use here? */
-    auto server_manager = new LdnMitmManager(5);
+    auto server_manager = new LdnMitmManager(2);
 
     /* Create ldn:u mitm. */
-    AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 61);
+    AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 1);
+    server_manager->AddWaitable(new ServiceServer<LdnMitmDebugService>("ldnmitm", 1));
 
     /* Loop forever, servicing our services. */
     server_manager->Process();
