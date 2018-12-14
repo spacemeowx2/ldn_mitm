@@ -55,11 +55,10 @@ enum LdnCommCmd {
 
 class ICommunicationInterface : public IServiceObject {
     private:
-        std::unique_ptr<LANDiscovery> lanDiscovery;
-        CommState state;
+        LANDiscovery lanDiscovery;
         IEvent *state_event;
     public:
-        ICommunicationInterface(): state(CommState::None), state_event(nullptr) {
+        ICommunicationInterface(): state_event(nullptr) {
             LogFormat("ICommunicationInterface");
             /* ... */
         };
@@ -69,14 +68,7 @@ class ICommunicationInterface : public IServiceObject {
             /* ... */
         };
     private:
-        void set_state(CommState new_state) {
-            this->state = new_state;
-            if (this->state_event) {
-                LogFormat("state_event signal_event");
-                this->state_event->Signal();
-            }
-        }
-        void onNodeChanged();
+        void onEventFired();
     private:
         Result Initialize(u64 unk, PidDescriptor pid);
         Result Finalize();

@@ -6,98 +6,144 @@
 #include <array>
 #include <mutex>
 #include <unordered_map>
-#include <poll.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <cstring>
 #include "ldn_types.hpp"
+#include "lan_protocol.hpp"
 
-class LANDiscovery {
+enum class NodeStatus : u8 {
+    Disconnected,
+    Connect,
+    Connected,
+};
+
+class LANDiscovery;
+
+class LanStation : public Pollable {
+    protected:
+        friend class LANDiscovery;
+        NodeInfo *nodeInfo;
+        NodeStatus status;
+        std::unique_ptr<TcpLanSocketBase> socket;
+        int nodeId;
+        LANDiscovery *discovery;
     public:
-        static const int BufferSize = 2048;
-        static const int DefaultPort = 11452;
-        static const int DiscoveryFds = 2;
-        static const int NodeMaxCount= 8;
-        static const int FdUdp = 0;
-        static const int FdTcp = 1;
-        static const u32 LANMagic = 0x11451400;
-        static const char *FakeSsid;
-        enum class LANPacketType : u8 {
-            scan,
-            scan_resp,
-            connect,
-            sync_network,
+        LanStation(int nodeId, LANDiscovery *discovery)
+            : nodeInfo(nullptr),
+            status(NodeStatus::Disconnected),
+            nodeId(nodeId),
+            discovery(discovery)
+        {}
+        NodeStatus getStatus() const {
+            return this->status;
+        }
+        void reset() {
+            this->socket.reset();
+            this->status = NodeStatus::Disconnected;
         };
-        enum class NodeStatus : u8 {
-            Disconnected,
-            Connect,
-            Connected,
+        void link(int fd) {
+            this->socket = std::make_unique<TcpLanSocketBase>(fd);
+            this->status = NodeStatus::Connect;
         };
-        struct LANPacketHeader {
-            u32 magic;
-            LANPacketType type;
-            u8 compressed;
-            u16 length;
-            u16 decompress_length;
-            u8 _reserved[2];
+        int getFd() override {
+            if (!this->socket) {
+                return -1;
+            }
+            return this->socket->getFd();
         };
-        struct LANNode {
-            uint8_t lastChange;
-            NodeInfo *nodeInfo;
-            NodeStatus status;
-            u8 buffer[BufferSize];
-            u16 recvSize;
-            struct pollfd *pfd;
+        int onRead() override;
+        void onClose() override;
+        int sendPacket(LANPacketType type, const void *data, size_t size) {
+            if (!this->socket) {
+                return -1;
+            }
+            return this->socket->sendPacket(type, data, size);
         };
+        void overrideInfo() {
+            bool connected = this->getStatus() == NodeStatus::Connected;
+            this->nodeInfo->nodeId = this->nodeId;
+            if (connected) {
+                this->nodeInfo->isConnected = 1;
+            } else {
+                this->nodeInfo->isConnected = 0;
+            }
+        }
+};
+
+class LDUdpSocket : public UdpLanSocketBase, public Pollable {
+    protected:
         struct MacHash {
             std::size_t operator() (const MacAddress &t) const {
                 return *reinterpret_cast<const u32*>(t.raw + 2);
             }
         };
-        typedef std::function<int(LANPacketType, const void *, size_t)> ReplyFunc;
-        typedef std::function<void()> NodeEventFunc;
-        static const NodeEventFunc EmptyFunc;
-    protected:
-        // 0: udp 1: tcp
-        std::array<struct pollfd, DiscoveryFds + NodeMaxCount> fds;
-        std::array<struct LANNode, NodeMaxCount> nodes;
-        HosMutex fdsMutex;
-        HosMutex networkInfoMutex;
+        virtual u32 getBroadcast() override;
+        LANDiscovery *discovery;
+    public:
         std::unordered_map<MacAddress, NetworkInfo, MacHash> scanResults;
+    public:
+        LDUdpSocket(int fd, LANDiscovery *discovery);
+        int getFd() override {
+            return UdpLanSocketBase::getFd();
+        }
+        int onRead() override;
+        void onClose() override {
+            LogFormat("LDUdpSocket::onClose");
+        };
+};
+
+class LDTcpSocket : public TcpLanSocketBase, public Pollable {
+    protected:
+        LANDiscovery *discovery;
+    public:
+        LDTcpSocket(int fd, LANDiscovery *discovery) : TcpLanSocketBase(fd), discovery(discovery) {};
+        int getFd() override {
+            return TcpLanSocketBase::getFd();
+        }
+        int onRead() override;
+        void onClose() override;
+};
+
+class LANDiscovery {
+    public:
+        static const int DefaultPort = 11452;
+        static const char *FakeSsid;
+        typedef std::function<int(LANPacketType, const void *, size_t)> ReplyFunc;
+        typedef std::function<void()> LanEventFunc;
+        static const LanEventFunc EmptyFunc;
+    protected:
+        friend class LDUdpSocket;
+        friend class LDTcpSocket;
+        friend class LanStation;
+        // 0: udp 1: tcp 2: client
+        std::unique_ptr<LDUdpSocket> udp;
+        std::unique_ptr<LDTcpSocket> tcp;
+        std::array<LanStation, StationCountMax> stations;
+        std::array<NodeLatestUpdate, NodeCountMax> nodeChanges;
+        std::array<u8, NodeCountMax> nodeLastStates;
         static void Worker(void* args);
         bool stop;
         bool inited;
         NetworkInfo networkInfo;
         u16 listenPort;
-        Thread worker_thread;
+        HosThread workerThread;
+        CommState state;
         void worker();
         int loopPoll();
-        void onMessage(int index, LANPacketType type, const void *data, size_t size, ReplyFunc reply);
-        void onPacket(int index);
-        void onNodeConnect();
-        void onNodeChanged(int fromIndex);
-        void prepareHeader(LANPacketHeader &header, LANPacketType type);
+        void onSyncNetwork(NetworkInfo *info);
+        void onConnect(int new_fd);
+        void onDisconnectFromHost();
+        void onNetworkInfoChanged();
+
         void updateNodes();
-        void closeAllNodes();
-        int sendBroadcast(LANPacketType type, const void *data, size_t size);
-        int sendBroadcast(LANPacketType type);
-        int sendTo(LANPacketType type, const void *data, size_t size, struct sockaddr_in &addr);
-        int sendTcp(LANPacketType type, const void *data, size_t size);
-        int sendTcp(LANPacketType type, const void *data, size_t size, int index);
-        int sendPacket(LANPacketType type, const void *data, size_t size, std::function<int(const void *, size_t)> bindSend);
-        int nodeRecv(int nodeId, u8 *buffer, size_t bufLen);
-        void nodeClose(int nodeId);
+        void resetStations();
         Result getFakeMac(MacAddress *mac);
         Result getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion);
-        u32 getBroadcast();
-        NodeEventFunc nodeEvent;
-    public: 
-        bool isHost;
-        LANDiscovery(u16 port = DefaultPort) : stop(false), inited(false), networkInfo({0}), listenPort(port), isHost(false) {
-            LogFormat("LANDiscovery");
-        };
-        Result initialize(NodeEventFunc nodeEvent = EmptyFunc, bool listening = true);
-        ~LANDiscovery();
+        LanEventFunc lanEvent;
+    public:
+        Result initialize(LanEventFunc lanEvent = EmptyFunc, bool listening = true);
+        Result finalize();
         Result initNetworkInfo();
         Result scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filter);
         Result setAdvertiseData(const u8 *data, uint16_t size);
@@ -107,11 +153,34 @@ class LANDiscovery {
         Result disconnect();
         Result getNetworkInfo(NetworkInfo *pOutNetwork);
         Result getNetworkInfo(NetworkInfo *pOutNetwork, NodeLatestUpdate *pOutUpdates, int bufferCount);
-        int nodeCount();
+        Result openAccessPoint();
+        Result closeAccessPoint();
+        Result openStation();
+        Result closeStation();
+    public:
+        LANDiscovery(u16 port = DefaultPort) :
+            stations({{{1, this}, {2, this}, {3, this}, {4, this}, {5, this}, {6, this}, {7, this}}}),
+            stop(false), inited(false),
+            networkInfo({0}), listenPort(port),
+            state(CommState::None) {
+            LogFormat("LANDiscovery");
+        };
+        ~LANDiscovery();
+        u16 getListenPort() const {
+            return this->listenPort;
+        }
+        CommState getState() const {
+            return this->state;
+        };
+        void setState(CommState v) {
+            this->state = v;
+            this->lanEvent();
+        };
+        int stationCount();
     protected:
         Result setSocketOpts(int fd);
-        Result initSocket(bool listening);
-        Result finalize();
-        int compress(const void *input, size_t input_size, uint8_t *output, size_t *output_size);
-        int decompress(const void *input, size_t input_size, uint8_t *output, size_t *output_size);
+        Result initTcp(bool listening);
+        Result initUdp(bool listening);
+        void initNodeStateChange();
+        bool isNodeStateChanged();
 };

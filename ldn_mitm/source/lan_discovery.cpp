@@ -1,22 +1,179 @@
 #include "lan_discovery.hpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <net/if.h>
-#include <cstring>
+#include <arpa/inet.h>
 #include "ipinfo.hpp"
 
-// Only used when debuging
-#define DISABLE_COMPRESS 0
-#define POLL_UNKNOWN (~(POLLIN | POLLPRI | POLLOUT))
 static const int ModuleID = 0xFD;
+static const int LdnModuleId = 0xCB;
 
 const char *LANDiscovery::FakeSsid = "12345678123456781234567812345678";
-const LANDiscovery::NodeEventFunc LANDiscovery::EmptyFunc = [](){};
+const LANDiscovery::LanEventFunc LANDiscovery::EmptyFunc = [](){};
+
+
+int LanStation::onRead() {
+    if (!this->socket) {
+        LogFormat("Nullptr %d\n", this->nodeId);
+        return -1;
+    }
+    return this->socket->recvPacket([&](LANPacketType type, const void *data, size_t size, ReplyFunc reply) -> int {
+        if (type == LANPacketType::Connect) {
+            LogFormat("on connect");
+            NodeInfo *info = (decltype(info))data;
+            if (size != sizeof(*info)) {
+                LogFormat("NodeInfo size is wrong");
+                return -1;
+            }
+            *this->nodeInfo = *info;
+            this->status = NodeStatus::Connected;
+
+            this->discovery->updateNodes();
+        } else {
+            LogFormat("unexpecting type %d", static_cast<int>(type));
+        }
+        return 0;
+    });
+}
+
+void LanStation::onClose() {
+    LogFormat("LanStation::onClose %d", this->nodeId);
+    this->reset();
+    this->discovery->updateNodes();
+}
+
+LDUdpSocket::LDUdpSocket(int fd, LANDiscovery *discovery)
+    :   UdpLanSocketBase(fd, discovery->getListenPort()),
+        discovery(discovery) {
+    /* ... */
+}
+
+int LDUdpSocket::onRead() {
+    LogFormat("LDUdpSocket::onRead");
+    return this->recvPacket([&](LANPacketType type, const void *data, size_t size, ReplyFunc reply) -> int {
+        switch (type) {
+            case LANPacketType::Scan: {
+                reply(LANPacketType::ScanResp, &this->discovery->networkInfo, sizeof(NetworkInfo));
+                break;
+            }
+            case LANPacketType::ScanResp: {
+                LogFormat("ScanResp");
+                NetworkInfo *info = (decltype(info))data;
+                if (size != sizeof(*info)) {
+                    break;
+                }
+                this->scanResults.insert({info->common.bssid, *info});
+                break;
+            }
+            default: {
+                LogFormat("LDUdpSocket::onRead unhandle type %d", static_cast<int>(type));
+                break;
+            }
+        }
+        return 0;
+    });
+}
+
+int LDTcpSocket::onRead() {
+    LogFormat("LDTcpSocket::onRead");
+    const auto state = this->discovery->getState();
+    if (state == CommState::Station || state == CommState::StationConnected) {
+        return this->recvPacket([&](LANPacketType type, const void *data, size_t size, ReplyFunc reply) -> int {
+            if (type == LANPacketType::SyncNetwork) {
+                LogFormat("SyncNetwork");
+                NetworkInfo *info = (decltype(info))data;
+                if (size != sizeof(*info)) {
+                    return -1;
+                }
+
+                this->discovery->onSyncNetwork(info);
+            } else {
+                LogFormat("LDTcpSocket::onRead unhandle type %d", static_cast<int>(type));
+                return -1;
+            }
+
+            return 0;
+        });
+    } else if (state == CommState::AccessPointCreated) {
+        struct sockaddr_in addr;
+        socklen_t addrlen = sizeof(addr);
+        int new_fd = accept(this->getFd(), (struct sockaddr *)&addr, &addrlen);
+        if (new_fd < 0)
+        {
+            LogFormat("accept failed");
+            return -1;
+        }
+        this->discovery->onConnect(new_fd);
+        return 0;
+    } else {
+        LogFormat("LDTcpSocket::onRead wrong state %d", static_cast<int>(state));
+        return -1;
+    }
+}
+
+void LDTcpSocket::onClose() {
+    LogFormat("LDTcpSocket::onClose");
+    this->discovery->onDisconnectFromHost();
+}
+
+u32 LDUdpSocket::getBroadcast() {
+    u32 address;
+    u32 netmask;
+    Result rc = ipinfoGetIpConfig(&address, &netmask);
+    if (R_FAILED(rc)) {
+        LogFormat("Broadcast failed to get ip");
+        return 0xFFFFFFFF;
+    }
+    u32 ret = address | ~netmask;
+    return ret;
+}
+
+void LANDiscovery::onSyncNetwork(NetworkInfo *info) {
+    this->networkInfo = *info;
+    if (this->state == CommState::Station) {
+        this->setState(CommState::StationConnected);
+    }
+    this->onNetworkInfoChanged();
+}
+
+void LANDiscovery::onConnect(int new_fd) {
+    LogFormat("Accepted %d", new_fd);
+    if (this->stationCount() >= StationCountMax) {
+        LogFormat("Close new_fd. stations are full");
+        close(new_fd);
+        return;
+    }
+
+    bool found = false;
+    for (auto &i : this->stations) {
+        if (i.getStatus() == NodeStatus::Disconnected) {
+            i.link(new_fd);
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        LogFormat("Close new_fd. no free station found");
+        close(new_fd);
+    }
+}
+
+void LANDiscovery::onDisconnectFromHost() {
+    LogFormat("onDisconnectFromHost state: %d", static_cast<int>(this->state));
+    if (this->state == CommState::StationConnected) {
+        this->setState(CommState::Station);
+    }
+}
+
+void LANDiscovery::onNetworkInfoChanged() {
+    if (this->isNodeStateChanged()) {
+        this->lanEvent();
+    }
+    return;
+}
 
 Result LANDiscovery::setAdvertiseData(const u8 *data, uint16_t size) {
-    std::scoped_lock<HosMutex> lock(networkInfoMutex);
-
     if (size > AdvertiseDataSizeMax) {
         return MAKERESULT(ModuleID, 10);
     }
@@ -42,19 +199,8 @@ Result LANDiscovery::initNetworkInfo() {
         nodes[i].nodeId = i;
         nodes[i].isConnected = 0;
     }
-    return 0;
-}
 
-u32 LANDiscovery::getBroadcast() {
-    u32 address;
-    u32 netmask;
-    Result rc = ipinfoGetIpConfig(&address, &netmask);
-    if (R_FAILED(rc)) {
-        LogFormat("Broadcast failed to get ip");
-        return 0xFFFFFFFF;
-    }
-    u32 ret = address | ~netmask;
-    return ret;
+    return 0;
 }
 
 Result LANDiscovery::getFakeMac(MacAddress *mac) {
@@ -92,35 +238,16 @@ Result LANDiscovery::setSocketOpts(int fd) {
     return 0;
 }
 
-Result LANDiscovery::initSocket(bool listening) {
+Result LANDiscovery::initTcp(bool listening) {
     int fd;
     int rc;
-    sockaddr_in addr;
-
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        return MAKERESULT(ModuleID, 1);
-    }
-    fds[FdUdp].fd = fd;
-
-    if (listening) {
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htons(INADDR_ANY);
-        addr.sin_port = htons(listenPort);
-        if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-            return MAKERESULT(ModuleID, 2);
-        }
-    }
-    rc = setSocketOpts(fd);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
+    struct sockaddr_in addr;
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
         return MAKERESULT(ModuleID, 6);
     }
-    fds[FdTcp].fd = fd;
+    auto tcpSocket = std::make_unique<LDTcpSocket>(fd, this);
 
     if (listening) {
         addr.sin_family = AF_INET;
@@ -138,11 +265,64 @@ Result LANDiscovery::initSocket(bool listening) {
         return rc;
     }
 
+    this->tcp = std::move(tcpSocket);
+
     return 0;
 }
 
-Result LANDiscovery::finalize() {
+Result LANDiscovery::initUdp(bool listening) {
+    int fd;
+    int rc;
+    struct sockaddr_in addr;
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        return MAKERESULT(ModuleID, 1);
+    }
+    auto udpSocket = std::make_unique<LDUdpSocket>(fd, this);
+
+    if (listening) {
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htons(INADDR_ANY);
+        addr.sin_port = htons(listenPort);
+        if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+            return MAKERESULT(ModuleID, 2);
+        }
+    }
+    rc = setSocketOpts(fd);
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+
+    this->udp = std::move(udpSocket);
+
     return 0;
+}
+
+void LANDiscovery::initNodeStateChange() {
+    for (auto &i : this->nodeChanges) {
+        i.stateChange = NodeStateChange_None;
+    }
+    for (auto &i : this->nodeLastStates) {
+        i = 0;
+    }
+}
+
+bool LANDiscovery::isNodeStateChanged() {
+    bool changed = false;
+    const auto &nodes = this->networkInfo.ldn.nodes;
+    for (int i = 0; i < NodeCountMax; i++) {
+        if (nodes[i].isConnected != this->nodeLastStates[i]) {
+            if (nodes[i].isConnected) {
+                this->nodeChanges[i].stateChange |= NodeStateChange_Connect;
+            } else {
+                this->nodeChanges[i].stateChange |= NodeStateChange_Disconnect;
+            }
+            this->nodeLastStates[i] = nodes[i].isConnected;
+            changed = true;
+        }
+    }
+    return changed;
 }
 
 void LANDiscovery::Worker(void* args) {
@@ -151,70 +331,10 @@ void LANDiscovery::Worker(void* args) {
     self->worker();
 }
 
-void LANDiscovery::onNodeChanged(int fromIndex) {
-    LogFormat("node changed from %d %d", fromIndex, fds[fromIndex].fd);
-
-    updateNodes();
-}
-
-void LANDiscovery::onMessage(int index, LANPacketType type, const void *data, size_t size, ReplyFunc reply) {
-    switch (type) {
-        case LANPacketType::scan: {
-            if (isHost) {
-                std::scoped_lock<HosMutex> lock(networkInfoMutex);
-                reply(LANPacketType::scan_resp, &networkInfo, sizeof(networkInfo));
-            }
-            break;
-        }
-        case LANPacketType::scan_resp: {
-            LogFormat("scan_resp");
-            NetworkInfo *info = (decltype(info))data;
-            if (size != sizeof(*info)) {
-                break;
-            }
-            scanResults.insert({info->common.bssid, *info});
-            break;
-        }
-        case LANPacketType::connect: {
-            LogFormat("on connect");
-            NodeInfo *info = (decltype(info))data;
-            if (size != sizeof(*info)) {
-                LogFormat("NodeInfo size is wrong");
-                break;
-            }
-            int nodeId = index - DiscoveryFds;
-            if (nodeId < 0) {
-                break;
-            }
-            auto &node = nodes[nodeId];
-            *node.nodeInfo = *info;
-            node.status = NodeStatus::Connected;
-            onNodeChanged(index);
-
-            break;
-        }
-        case LANPacketType::sync_network: {
-            std::scoped_lock<HosMutex> lock(networkInfoMutex);
-            LogFormat("sync_network");
-            NetworkInfo *info = (decltype(info))data;
-            if (size != sizeof(*info)) {
-                break;
-            }
-            networkInfo = *info;
-            nodeEvent();
-            break;
-        }
-        default: {
-            LogFormat("on_message unhandle type %d", static_cast<int>(type));
-            break;
-        }
-    }
-}
-
 Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filter) {
-    scanResults.clear();
+    this->udp->scanResults.clear();
 
-    int len = sendBroadcast(LANPacketType::scan);
+    int len = this->udp->sendBroadcast(LANPacketType::Scan);
     if (len < 0) {
         return MAKERESULT(ModuleID, 20);
     }
@@ -222,7 +342,7 @@ Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filte
     svcSleepThread(1000000000L); // 1sec
 
     int i = 0;
-    for (auto& item : scanResults) {
+    for (auto& item : this->udp->scanResults) {
         if (i >= *count) {
             break;
         }
@@ -255,75 +375,17 @@ Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filte
     return 0;
 }
 
-int LANDiscovery::sendBroadcast(LANPacketType type, const void *data, size_t size) {
-    struct sockaddr_in addr;
-
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(getBroadcast());
-    addr.sin_port = htons(listenPort);
-
-    return sendTo(type, data, size, addr);
-}
-
-int LANDiscovery::sendBroadcast(LANPacketType type) {
-    return sendBroadcast(type, NULL, 0);
-}
-
-int LANDiscovery::sendTo(LANPacketType type, const void *data, size_t size, struct sockaddr_in &addr) {
-    return sendPacket(type, data, size, [&](const void *d, size_t s) {
-        return sendto(fds[FdUdp].fd, d, s, 0, (struct sockaddr *)&addr, sizeof(addr));
-    });
-}
-
-int LANDiscovery::sendTcp(LANPacketType type, const void *data, size_t size) {
-    return sendTcp(type, data, size, nodes[0].pfd->fd);
-}
-
-int LANDiscovery::sendTcp(LANPacketType type, const void *data, size_t size, int fd) {
-    return sendPacket(type, data, size, [&](const void *d, size_t s) {
-        return send(fd, d, s, 0);
-    });
-}
-
-int LANDiscovery::sendPacket(LANPacketType type, const void *data, size_t size, std::function<int(const void *, size_t)> bindSend) {
-    LANPacketHeader header;
-    prepareHeader(header, type);
-    if (data == NULL) {
-        size = 0;
+void LANDiscovery::resetStations() {
+    for (auto &i : this->stations) {
+        i.reset();
     }
-    header.length = size;
-    u8 buf[size + sizeof(header)];
-    if (size > 0) {
-        u8 compressed[size];
-        size_t outSize = size;
-        if (compress(data, size, compressed, &outSize) == 0) {
-            std::memcpy(buf + sizeof(header), compressed, outSize);
-            header.decompress_length = header.length;
-            header.length = outSize;
-            header.compressed = true;
-        } else {
-            std::memcpy(buf + sizeof(header), data, size);
-        }
-    }
-    std::memcpy(buf, &header, sizeof(header));
-    return bindSend(buf, header.length + sizeof(header));
 }
 
-void LANDiscovery::prepareHeader(LANPacketHeader &header, LANPacketType type) {
-    header.magic = LANMagic;
-    header.type = type;
-    header.compressed = false;
-    header.length = 0;
-    header.decompress_length = 0;
-    header._reserved[0] = 0;
-    header._reserved[1] = 0;
-}
-
-int LANDiscovery::nodeCount() {
+int LANDiscovery::stationCount() {
     int count = 0;
 
-    for (auto const &i : nodes) {
-        if (i.status != NodeStatus::Disconnected) {
+    for (auto const &i : this->stations) {
+        if (i.getStatus() != NodeStatus::Disconnected) {
             count++;
         }
     }
@@ -332,246 +394,53 @@ int LANDiscovery::nodeCount() {
 }
 
 void LANDiscovery::updateNodes() {
-    std::scoped_lock<HosMutex> lock(networkInfoMutex);
     int count = 0;
-    for (int i = 0; i < NodeMaxCount; i++) {
-        bool connected = nodes[i].status == NodeStatus::Connected;
+    for (auto &i : this->stations) {
+        bool connected = i.getStatus() == NodeStatus::Connected;
         if (connected) {
             count++;
-            networkInfo.ldn.nodes[i].nodeId = i;
-            networkInfo.ldn.nodes[i].isConnected = 1;
-        } else {
-            networkInfo.ldn.nodes[i].isConnected = 0;
         }
+        i.overrideInfo();
     }
-    networkInfo.ldn.nodeCount = count;
+    this->networkInfo.ldn.nodeCount = count + 1;
 
-    for (auto &i : nodes) {
-        if (i.status == NodeStatus::Connected) {
-            int fd = i.pfd->fd;
-            if (fd == -1) continue;
-            int ret = sendTcp(LANPacketType::sync_network, &networkInfo, sizeof(networkInfo), fd);
+    for (auto &i : stations) {
+        if (i.getStatus() == NodeStatus::Connected) {
+            int ret = i.sendPacket(LANPacketType::SyncNetwork, &this->networkInfo, sizeof(this->networkInfo));
             if (ret < 0) {
                 LogFormat("Failed to sendTcp");
             }
         }
     }
 
-    nodeEvent();
-}
-
-void LANDiscovery::nodeClose(int nodeId) {
-    LogFormat("node %d closed", nodeId);
-    LANNode &node = nodes[nodeId];
-    close(node.pfd->fd);
-    node.pfd->fd = -1;
-    node.status = NodeStatus::Disconnected;
-    node.lastChange |= NodeStateChange_Disconnect;
-
-    updateNodes();
-}
-
-void LANDiscovery::closeAllNodes() {
-    for (auto &node : nodes) {
-        if (node.status != NodeStatus::Disconnected) {
-            close(node.pfd->fd);
-            node.pfd->fd = -1;
-            node.status = NodeStatus::Disconnected;
-            node.lastChange = NodeStateChange_None;
-        }
-    }
-}
-
-int LANDiscovery::nodeRecv(int nodeId, u8 *buffer, size_t bufLen) {
-    constexpr int HeaderSize = sizeof(LANPacketHeader);
-    LANNode &node = nodes[nodeId];
-    const int fd = node.pfd->fd;
-    ssize_t len = recv(fd, (void *)(node.buffer + node.recvSize), sizeof(node.buffer) - node.recvSize, 0);
-    if (len <= 0) {
-        nodeClose(nodeId);
-    }
-    node.recvSize += len;
-
-    if (node.recvSize < HeaderSize) {
-        return 0;
-    }
-
-    LANPacketHeader *header = (decltype(header))node.buffer;
-    if (header->magic != LANMagic) {
-        nodeClose(nodeId);
-        return -1;
-    }
-
-    const auto total = HeaderSize + header->length;
-    if (total > BufferSize) {
-        nodeClose(nodeId);
-        return -1;
-    }
-    if (node.recvSize < total) {
-        return 0;
-    }
-
-    std::memcpy(buffer, node.buffer, total);
-    node.recvSize -= total;
-    std::memcpy(node.buffer, node.buffer + total, node.recvSize);
-
-    return total;
-}
-
-void LANDiscovery::onPacket(int index) {
-    static u8 buffer[BufferSize];
-    static u8 decompressBuffer[BufferSize];
-    constexpr int HeaderSize = sizeof(LANPacketHeader);
-
-    const int fd = fds[index].fd;
-    ssize_t len;
-    std::function<int(const void *, size_t)> bindSend;
-    struct sockaddr_in addr;
-    socklen_t addr_len;
-
-    // udp
-    if (index == FdUdp) {
-        addr_len = sizeof(addr);
-        len = recvfrom(fd, buffer, sizeof(buffer), 0, (struct sockaddr *)&addr, &addr_len);
-        if (len <= 0) {
-            LogFormat("udp len <= 0");
-        }
-        bindSend = [&](const void *data, size_t size) {
-            return sendto(fd, data, size, 0, (struct sockaddr *)&addr, sizeof(addr));
-        };
-    } else { // tcp
-        int nodeId = index - DiscoveryFds;
-        len = nodeRecv(nodeId, buffer, sizeof(buffer));
-        bindSend = [&](const void *data, size_t size) {
-            return send(fd, data, size, 0);
-        };
-    }
-    if ((size_t)len < HeaderSize) {
-        return;
-    }
-    LANPacketHeader *header = (decltype(header))buffer;
-    if (header->magic != LANMagic) {
-        return;
-    }
-
-    auto reply = [&](LANPacketType type, const void *data, size_t size) {
-        return sendPacket(type, data, size, bindSend);
-    };
-    auto body = buffer + HeaderSize;
-    auto bodyLen = len - HeaderSize;
-    if (header->compressed) {
-        size_t outSize = sizeof(decompressBuffer);
-        if (decompress(body, bodyLen, decompressBuffer, &outSize) != 0) {
-            LogFormat("Decompress error");
-            return;
-        }
-        if (outSize != header->decompress_length) {
-            LogFormat("Decompress error length not match");
-            return;
-        }
-        body = decompressBuffer;
-        bodyLen = outSize;
-    }
-    onMessage(index, header->type, body, bodyLen, reply);
-}
-
-void LANDiscovery::onNodeConnect() {
-    struct sockaddr_in addr;
-    socklen_t addrlen = sizeof(addr);
-    int new_fd = accept(fds[FdTcp].fd, (struct sockaddr *)&addr, &addrlen);
-    if (new_fd < 0)
-    {
-        LogFormat("accept failed");
-        return;
-    }
-    LogFormat("Accepted %d", new_fd);
-    if (nodeCount() >= NodeMaxCount) {
-        LogFormat("Close new_fd. nodes are full");
-        close(new_fd);
-        return;
-    }
-
-    int i;
-    for (i = 0; i < NodeMaxCount; i++) {
-        if (nodes[i].status == NodeStatus::Disconnected) {
-            break;
-        }
-    }
-    nodes[i].status = NodeStatus::Connect;
-    nodes[i].recvSize = 0;
-    nodes[i].pfd->fd = new_fd;
-    nodes[i].lastChange |= NodeStateChange_Connect;
+    this->onNetworkInfoChanged();
 }
 
 int LANDiscovery::loopPoll() {
     int rc;
-    int nfds = DiscoveryFds + NodeMaxCount;
     if (!inited) {
         return 0;
     }
 
-    {
-        std::scoped_lock<HosMutex> lock(fdsMutex);
-        rc = poll(fds.data(), nfds, 100);
+    int nfds = 2 + StationCountMax;
+    Pollable *fds[nfds];
+    fds[0] = this->udp.get();
+    fds[1] = this->tcp.get();
+    for (int i = 0; i < StationCountMax; i++) {
+        fds[2 + i] = this->stations.data() + i;
     }
-    if (rc < 0)
-    {
-        LogFormat("loopPoll failed %d", rc);
-        return -1;
-    } else if (rc > 0) {
-        /* check the command socket */
-        if (fds[FdUdp].revents != 0) {
-            if (fds[FdUdp].revents & POLL_UNKNOWN) {
-                LogFormat("udp_fd: revents=0x%08X", fds[FdUdp].revents);
-            }
+    rc = Pollable::Poll(fds, nfds);
 
-            if (fds[FdUdp].revents & (POLLERR | POLLHUP)) {
-                LogFormat("udp_fd revents=0x%x", fds[FdUdp].revents);
-                return -1;
-            } else if (fds[FdUdp].revents & (POLLIN | POLLPRI)) {
-                onPacket(0);
-            }
-        }
-        if (fds[FdTcp].revents != 0) {
-            if (fds[FdTcp].revents & POLL_UNKNOWN) {
-                LogFormat("tcp_fd: revents=0x%08X", fds[FdUdp].revents);
-            }
-            if (fds[FdTcp].revents & POLLIN)
-            {
-                onNodeConnect();
-            }
-        }
-        for (int i = DiscoveryFds; i < nfds; i++) {
-            if (fds[i].revents & (POLLIN | POLLPRI)) {
-                onPacket(i);
-            } else if (fds[i].revents & (POLLERR | POLLHUP)) {
-                const int nodeId = i - DiscoveryFds;
-                nodeClose(nodeId);
-            }
-        }
-    }
-
-    return 0;
+    return rc;
 }
 
 LANDiscovery::~LANDiscovery() {
     LogFormat("~LANDiscovery");
-    if (inited) {
-        stop = true;
-        threadWaitForExit(&worker_thread);
-        threadClose(&worker_thread);
-
-        for (auto &i : fds) {
-            if (i.fd != -1) {
-                close(i.fd);
-                i.fd = -1;
-            }
-        }
-    }
 }
 
 void LANDiscovery::worker() {
     while (!stop) {
+
         int rc = loopPoll();
         if (rc < 0) {
             break;
@@ -583,25 +452,36 @@ void LANDiscovery::worker() {
 }
 
 Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork) {
-    std::scoped_lock<HosMutex> lock(networkInfoMutex);
-    std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
-    return 0;
+    Result rc = 0;
+
+    if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
+        std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
+    } else {
+        rc = MAKERESULT(LdnModuleId, 32);
+    }
+
+    return rc;
 }
 
 Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork, NodeLatestUpdate *pOutUpdates, int bufferCount) {
-    std::scoped_lock<HosMutex> lock(networkInfoMutex);
-    std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
+    Result rc = 0;
 
-    if (bufferCount < 0 || bufferCount > NodeCountMax) {
-        return MAKERESULT(ModuleID, 50);
+    if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
+        std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
+
+        if (bufferCount < 0 || bufferCount > NodeCountMax) {
+            return MAKERESULT(ModuleID, 50);
+        }
+
+        for (int i = 0; i < bufferCount; i++) {
+            pOutUpdates[i].stateChange = nodeChanges[i].stateChange;
+            nodeChanges[i].stateChange = NodeStateChange_None;
+        }
+    } else {
+        rc = MAKERESULT(LdnModuleId, 32);
     }
 
-    for (int i = 0; i < bufferCount; i++) {
-        pOutUpdates[i].stateChange = nodes[i].lastChange;
-        nodes[i].lastChange = NodeStateChange_None;
-    }
-
-    return 0;
+    return rc;
 }
 
 Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion) {
@@ -624,53 +504,97 @@ Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u
 }
 
 Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const UserConfig *userConfig, const NetworkConfig *networkConfig) {
-    std::scoped_lock<HosMutex> lock(networkInfoMutex);
     Result rc = 0;
 
-    rc = initNetworkInfo();
+    if (this->state != CommState::AccessPoint) {
+        return MAKERESULT(LdnModuleId, 32);
+    }
+
+    rc = this->initTcp(true);
     if (R_FAILED(rc)) {
         return rc;
     }
-    networkInfo.ldn.nodeCountMax = networkConfig->nodeCountMax;
-    networkInfo.ldn.securityMode = securityConfig->securityMode;
+    rc = this->initNetworkInfo();
+    if (R_FAILED(rc)) {
+        return rc;
+    }
+    this->networkInfo.ldn.nodeCountMax = networkConfig->nodeCountMax;
+    this->networkInfo.ldn.securityMode = securityConfig->securityMode;
 
     if (networkConfig->channel == 0) {
-        networkInfo.common.channel = 6;
+        this->networkInfo.common.channel = 6;
     } else {
-        networkInfo.common.channel = networkConfig->channel;
+        this->networkInfo.common.channel = networkConfig->channel;
     }
-    networkInfo.networkId.intentId = networkConfig->intentId;
+    this->networkInfo.networkId.intentId = networkConfig->intentId;
 
-    rc = getNodeInfo(nodes[0].nodeInfo, userConfig, networkConfig->localCommunicationVersion);
+    NodeInfo *node0 = &this->networkInfo.ldn.nodes[0];
+    rc = this->getNodeInfo(node0, userConfig, networkConfig->localCommunicationVersion);
     if (R_FAILED(rc)) {
         return rc;
     }
-    nodes[0].status = NodeStatus::Connected;
+    
+    this->setState(CommState::AccessPointCreated);
 
-    updateNodes();
-
-    for (auto &i : nodes) {
-        i.lastChange = NodeStateChange_None;
-    }
-
-    isHost = true;
+    this->initNodeStateChange();
+    node0->isConnected = 1;
+    this->updateNodes();
 
     return rc;
 }
 
 Result LANDiscovery::destroyNetwork() {
-    std::scoped_lock<HosMutex> lock(fdsMutex);
+    this->resetStations();
 
-    isHost = false;
-    closeAllNodes();
+    this->setState(CommState::AccessPoint);
 
     return 0;
 }
 
 Result LANDiscovery::disconnect() {
-    std::scoped_lock<HosMutex> lock(fdsMutex);
+    this->tcp.reset();
 
-    closeAllNodes();
+    this->setState(CommState::Station);
+
+    return 0;
+}
+
+Result LANDiscovery::openAccessPoint() {
+    if (this->state == CommState::None) {
+        return MAKERESULT(LdnModuleId, 32);
+    }
+
+    this->setState(CommState::AccessPoint);
+
+    return 0;
+}
+
+Result LANDiscovery::closeAccessPoint() {
+    if (this->state == CommState::None) {
+        return MAKERESULT(LdnModuleId, 32);
+    }
+
+    this->setState(CommState::Initialized);
+
+    return 0;
+}
+
+Result LANDiscovery::openStation() {
+    if (this->state == CommState::None) {
+        return MAKERESULT(LdnModuleId, 32);
+    }
+
+    this->setState(CommState::Station);
+
+    return 0;
+}
+
+Result LANDiscovery::closeStation() {
+    if (this->state == CommState::None) {
+        return MAKERESULT(LdnModuleId, 32);
+    }
+
+    this->setState(CommState::Initialized);
 
     return 0;
 }
@@ -687,153 +611,78 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
     addr.sin_port = htons(listenPort);
     LogFormat("connect hostIp %x", hostIp);
 
-    {
-        std::scoped_lock<HosMutex> lock(fdsMutex);
-        if (nodes[0].pfd->fd == -1) {
-            int fd = socket(AF_INET, SOCK_STREAM, 0);
-            if (fd < 0) {
-                return MAKERESULT(ModuleID, 36);
-            }
-            Result rc = setSocketOpts(fd);
-            if (R_FAILED(rc)) {
-                return rc;
-            }
-            nodes[0].pfd->fd = fd;
-        }
+    Result rc = this->initTcp(false);
+    if (R_FAILED(rc)) {
+        return rc;
     }
 
-    int ret = ::connect(nodes[0].pfd->fd, (struct sockaddr *)&addr, sizeof(addr));
+    int ret = ::connect(this->tcp->getFd(), (struct sockaddr *)&addr, sizeof(addr));
     if (ret != 0) {
         LogFormat("connect failed");
         return MAKERESULT(ModuleID, 31);
     }
 
     NodeInfo myNode = {0};
-    Result rc = getNodeInfo(&myNode, userConfig, localCommunicationVersion);
+    rc = this->getNodeInfo(&myNode, userConfig, localCommunicationVersion);
     if (R_FAILED(rc)) {
         return rc;
     }
-    ret = sendTcp(LANPacketType::connect, &myNode, sizeof(myNode));
+    ret = this->tcp->sendPacket(LANPacketType::Connect, &myNode, sizeof(myNode));
     if (ret < 0) {
-        LogFormat("sendTcp failed");
+        LogFormat("sendPacket failed");
         return MAKERESULT(ModuleID, 32);
     }
-
-    for (auto &i : nodes) {
-        i.lastChange = NodeStateChange_None;
-    }
-
-    isHost = false;
 
     svcSleepThread(1000000000L); // 1sec
 
     return 0;
 }
 
-Result LANDiscovery::initialize(NodeEventFunc nodeEvent, bool listening) {
-    if (inited) {
-        return 0;
+Result LANDiscovery::finalize() {
+    if (this->inited) {
+        this->stop = true;
+        this->workerThread.Join();
+        this->inited = false;
+        this->udp.reset();
+        this->tcp.reset();
+        for (auto& i : stations) {
+            i.reset();
+        }
     }
 
-    std::scoped_lock<HosMutex> lock(networkInfoMutex);
-    this->nodeEvent = nodeEvent;
-    for(auto &i : fds) {
-        i.fd = -1;
-        i.events = POLLIN;
-        i.revents = 0;
-    }
-    for (int i = 0; i < NodeMaxCount; i++) {
-        nodes[i].status = NodeStatus::Disconnected;
-        nodes[i].pfd = &fds[DiscoveryFds + i];
-        nodes[i].nodeInfo = &networkInfo.ldn.nodes[i];
-        nodes[i].lastChange = NodeStateChange_None;
-    }
-    Result rc = initSocket(listening);
-    if (R_FAILED(rc)) {
-        LogFormat("initSocket %x", rc);
-        return rc;
-    }
+    this->setState(CommState::None);
 
-    rc = initNetworkInfo();
-    if (R_FAILED(rc)) {
-        LogFormat("initNetworkInfo %x", rc);
-        return rc;
-    }
-
-    if (R_FAILED(threadCreate(&worker_thread, &Worker, this, 0x4000, 0x15, 2))) {
-        LogFormat("LANDiscovery Failed to threadCreate");
-        return 0xF601;
-    }
-    if (R_FAILED(threadStart(&worker_thread))) {
-        LogFormat("LANDiscovery Failed to threadStart");
-        return 0xF601;
-    }
-
-    inited = true;
     return 0;
 }
 
-int LANDiscovery::compress(const void *input, size_t input_size, uint8_t *output, size_t *output_size) {
-#if DISABLE_COMPRESS
-    return -1;
-#endif
-    const uint8_t *in = (decltype(in))input;
-    const uint8_t *in_end = in + input_size;
-    uint8_t *out = output;
-    uint8_t *out_end = output + *output_size;
-
-    while (out < out_end && in < in_end) {
-        uint8_t c = *in++;
-        uint8_t count = 0;
-
-        if (c == 0) {
-            while (*in == 0 && in < in_end && count < 0xFF) {
-                count += 1;
-                in++;
-            }
-        }
-
-        if (c == 0x00) {
-            *out++ = 0;
-
-            if (out == out_end)
-                return -1;
-            *out++ = count;
-        } else {
-            *out++ = c;
-        }
+Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
+    if (this->inited) {
+        return 0;
     }
 
-    *output_size = out - output;
-
-    return in == in_end ? 0 : -1;
-}
-
-int LANDiscovery::decompress(const void *input, size_t input_size, uint8_t *output, size_t *output_size) {
-    const uint8_t *in = (decltype(in))input;
-    const uint8_t *in_end = in + input_size;
-    uint8_t *out = output;
-    uint8_t *out_end = output + *output_size;
-
-    while (in < in_end && out < out_end) {
-        uint8_t c = *in++;
-
-        *out++ = c;
-        if (c == 0) {
-            if (in == in_end) {
-                return -1;
-            }
-            uint8_t count = *in++;
-            for (int i = 0; i < count; i++) {
-                if (out == out_end) {
-                    break;
-                }
-                *out++ = c;
-            }
-        }
+    for (auto &i : stations) {
+        i.discovery = this;
+        i.nodeInfo = &this->networkInfo.ldn.nodes[i.nodeId];
+        i.reset();
     }
 
-    *output_size = out - output;
+    this->lanEvent = lanEvent;
+    Result rc = initUdp(listening);
+    if (R_FAILED(rc)) {
+        LogFormat("initUdp %x", rc);
+        return rc;
+    }
 
-    return in == in_end ? 0 : -1;
+    if (R_FAILED(this->workerThread.Initialize(&Worker, this, 0x4000, 0x15, 2))) {
+        LogFormat("LANDiscovery Failed to threadCreate");
+        return 0xF601;
+    }
+    if (R_FAILED(this->workerThread.Start())) {
+        LogFormat("LANDiscovery Failed to threadStart");
+        return 0xF601;
+    }
+    this->setState(CommState::Initialized);
+
+    this->inited = true;
+    return 0;
 }

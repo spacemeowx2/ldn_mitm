@@ -1,11 +1,13 @@
 #pragma once
 #include <stdint.h>
+#include <stdlib.h>
 
-#define SsidLengthMax 32
-#define AdvertiseDataSizeMax 384
-#define UserNameBytesMax 32
-#define NodeCountMax 8
-#define PassphraseLengthMax 64
+const size_t SsidLengthMax = 32;
+const size_t AdvertiseDataSizeMax = 384;
+const size_t UserNameBytesMax = 32;
+const int NodeCountMax = 8;
+const int StationCountMax = NodeCountMax - 1;
+const size_t  PassphraseLengthMax = 64;
 
 enum NodeStateChange { 
     NodeStateChange_None = 0, 
