@@ -331,7 +331,7 @@ void LANDiscovery::Worker(void* args) {
     self->worker();
 }
 
-Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filter) {
+Result LANDiscovery::scan(NetworkInfo *pOutNetwork, u16 *count, ScanFilter filter) {
     this->udp->scanResults.clear();
 
     int len = this->udp->sendBroadcast(LANPacketType::Scan);
@@ -367,7 +367,7 @@ Result LANDiscovery::scan(NetworkInfo *networkInfo, u16 *count, ScanFilter filte
         }
 
         if (copy) {
-            networkInfo[i++] = info;
+            pOutNetwork[i++] = info;
         }
     }
     *count = i;
@@ -466,17 +466,20 @@ Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork) {
 Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork, NodeLatestUpdate *pOutUpdates, int bufferCount) {
     Result rc = 0;
 
+    if (bufferCount < 0 || bufferCount > NodeCountMax) {
+        return MAKERESULT(ModuleID, 50);
+    }
+
     if (this->state == CommState::AccessPointCreated || this->state == CommState::StationConnected) {
         std::memcpy(pOutNetwork, &networkInfo, sizeof(networkInfo));
 
-        if (bufferCount < 0 || bufferCount > NodeCountMax) {
-            return MAKERESULT(ModuleID, 50);
-        }
-
+        char str[10] = {0};
         for (int i = 0; i < bufferCount; i++) {
             pOutUpdates[i].stateChange = nodeChanges[i].stateChange;
             nodeChanges[i].stateChange = NodeStateChange_None;
+            str[i] = '0' + pOutUpdates[i].stateChange;
         }
+        LogFormat("getNetworkInfo updates %s", str);
     } else {
         rc = MAKERESULT(LdnModuleId, 32);
     }

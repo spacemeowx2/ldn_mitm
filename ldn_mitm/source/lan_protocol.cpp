@@ -107,6 +107,10 @@ int LanSocket::recvPacket(MessageCallback callback) {
 
     len = this->recvPartPacket(buffer, sizeof(buffer), &addr);
 
+    if (len <= 0) {
+        return len;
+    }
+
     LANPacketHeader *header = (decltype(header))buffer;
 
     auto body = buffer + HeaderSize;
@@ -115,6 +119,8 @@ int LanSocket::recvPacket(MessageCallback callback) {
         size_t outSize = sizeof(decompressBuffer);
         if (decompress(body, bodyLen, decompressBuffer, &outSize) != 0) {
             LogFormat("Decompress error");
+            LogHex(header, HeaderSize);
+            LogHex(body, bodyLen);
             return -1;
         }
         if (outSize != header->decompress_length) {
