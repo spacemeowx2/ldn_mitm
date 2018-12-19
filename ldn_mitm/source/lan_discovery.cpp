@@ -267,7 +267,10 @@ Result LANDiscovery::initTcp(bool listening) {
         return rc;
     }
 
-    this->tcp = std::move(tcpSocket);
+    {
+        std::scoped_lock<HosMutex> lock(this->pollMutex);
+        this->tcp = std::move(tcpSocket);
+    }
 
     return 0;
 }
@@ -296,7 +299,10 @@ Result LANDiscovery::initUdp(bool listening) {
         return rc;
     }
 
-    this->udp = std::move(udpSocket);
+    {
+        std::scoped_lock<HosMutex> lock(this->pollMutex);
+        this->udp = std::move(udpSocket);
+    }
 
     return 0;
 }
@@ -424,6 +430,7 @@ int LANDiscovery::loopPoll() {
         return 0;
     }
 
+    std::scoped_lock<HosMutex> lock(this->pollMutex);
     int nfds = 2 + StationCountMax;
     Pollable *fds[nfds];
     fds[0] = this->udp.get();
@@ -550,8 +557,7 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
 }
 
 Result LANDiscovery::destroyNetwork() {
-
-    this->tcp.reset();
+    this->tcp->close();
     this->resetStations();
 
     this->setState(CommState::AccessPoint);
@@ -560,7 +566,7 @@ Result LANDiscovery::destroyNetwork() {
 }
 
 Result LANDiscovery::disconnect() {
-    this->tcp.reset();
+    this->tcp->close();
 
     this->setState(CommState::Station);
 
@@ -572,7 +578,7 @@ Result LANDiscovery::openAccessPoint() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp.reset();
+    this->tcp->close();
     this->resetStations();
 
     this->setState(CommState::AccessPoint);
@@ -585,7 +591,7 @@ Result LANDiscovery::closeAccessPoint() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp.reset();
+    this->tcp->close();
     this->resetStations();
 
     this->setState(CommState::Initialized);
@@ -598,7 +604,7 @@ Result LANDiscovery::openStation() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp.reset();
+    this->tcp->close();
     this->resetStations();
 
     this->setState(CommState::Station);
@@ -611,7 +617,7 @@ Result LANDiscovery::closeStation() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp.reset();
+    this->tcp->close();
     this->resetStations();
 
     this->setState(CommState::Initialized);
@@ -663,7 +669,7 @@ Result LANDiscovery::finalize() {
         this->stop = true;
         this->workerThread.Join();
         this->udp.reset();
-        this->tcp.reset();
+        this->tcp->close();
         this->resetStations();
         this->inited = false;
     }

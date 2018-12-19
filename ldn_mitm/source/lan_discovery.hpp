@@ -117,6 +117,7 @@ class LANDiscovery {
         friend class LDTcpSocket;
         friend class LanStation;
         // 0: udp 1: tcp 2: client
+        HosMutex pollMutex;
         std::unique_ptr<LDUdpSocket> udp;
         std::unique_ptr<LDTcpSocket> tcp;
         std::array<LanStation, StationCountMax> stations;
