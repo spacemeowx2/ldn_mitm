@@ -557,7 +557,9 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
 }
 
 Result LANDiscovery::destroyNetwork() {
-    this->tcp->close();
+    if (this->tcp) {
+        this->tcp->close();
+    }
     this->resetStations();
 
     this->setState(CommState::AccessPoint);
@@ -566,8 +568,9 @@ Result LANDiscovery::destroyNetwork() {
 }
 
 Result LANDiscovery::disconnect() {
-    this->tcp->close();
-
+    if (this->tcp) {
+        this->tcp->close();
+    }
     this->setState(CommState::Station);
 
     return 0;
@@ -578,7 +581,9 @@ Result LANDiscovery::openAccessPoint() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp->close();
+    if (this->tcp) {
+        this->tcp->close();
+    }
     this->resetStations();
 
     this->setState(CommState::AccessPoint);
@@ -591,7 +596,9 @@ Result LANDiscovery::closeAccessPoint() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp->close();
+    if (this->tcp) {
+        this->tcp->close();
+    }
     this->resetStations();
 
     this->setState(CommState::Initialized);
@@ -604,7 +611,9 @@ Result LANDiscovery::openStation() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp->close();
+    if (this->tcp) {
+        this->tcp->close();
+    }
     this->resetStations();
 
     this->setState(CommState::Station);
@@ -617,7 +626,9 @@ Result LANDiscovery::closeStation() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
-    this->tcp->close();
+    if (this->tcp) {
+        this->tcp->close();
+    }
     this->resetStations();
 
     this->setState(CommState::Initialized);
@@ -669,7 +680,7 @@ Result LANDiscovery::finalize() {
         this->stop = true;
         this->workerThread.Join();
         this->udp.reset();
-        this->tcp->close();
+        this->tcp.reset();
         this->resetStations();
         this->inited = false;
     }
