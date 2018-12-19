@@ -39,6 +39,7 @@ int Pollable::Poll(Pollable *fds[], size_t nfds, int timeout) {
             } else if (pfd.revents & (POLLIN | POLLPRI)) {
                 int rc = fds[i]->onRead();
                 if (rc != 0) {
+                    LogFormat("Pollable::Poll close %d", rc);
                     fds[i]->onClose();
                 }
             }
@@ -72,21 +73,25 @@ int LanSocket::recvPartPacket(u8 *buffer, size_t bufLen, struct sockaddr_in *add
     this->recvSize += len;
 
     if (this->recvSize < HeaderSize) {
+        LogFormat("recvPartPacket this->recvSize < HeaderSize");
         return 0;
     }
 
     LANPacketHeader *header = (decltype(header))this->buffer;
     if (header->magic != LANMagic) {
+        LogFormat("recvPartPacket header->magic != LANMagic");
         this->resetRecvSize();
         return 0;
     }
 
     const auto total = HeaderSize + header->length;
     if (total > BufferSize) {
+        LogFormat("recvPartPacket total > BufferSize");
         this->resetRecvSize();
         return 0;
     }
     if (this->recvSize < total) {
+        LogFormat("recvPartPacket this->recvSize < total. len: %d total: %d", static_cast<int>(len), static_cast<int>(total));
         return 0;
     }
 
@@ -175,7 +180,11 @@ void LanSocket::prepareHeader(LANPacketHeader &header, LANPacketType type) {
 }
 
 ssize_t TcpLanSocketBase::recvfrom(void *buf, size_t len, struct sockaddr_in *addr) {
-    return ::recvfrom(this->fd, buf, len, 0, nullptr, 0);
+    auto rc = ::recvfrom(this->fd, buf, len, 0, nullptr, 0);
+    if (rc == 0) {
+        return -0xFD23;
+    }
+    return rc;
 }
 int TcpLanSocketBase::sendto(const void *buf, size_t len, struct sockaddr_in *addr) {
     return ::sendto(this->fd, buf, len, 0, nullptr, 0);
