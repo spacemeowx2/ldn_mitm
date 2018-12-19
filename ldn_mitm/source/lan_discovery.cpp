@@ -53,7 +53,9 @@ int LDUdpSocket::onRead() {
     return this->recvPacket([&](LANPacketType type, const void *data, size_t size, ReplyFunc reply) -> int {
         switch (type) {
             case LANPacketType::Scan: {
-                reply(LANPacketType::ScanResp, &this->discovery->networkInfo, sizeof(NetworkInfo));
+                if (this->discovery->getState() == CommState::AccessPointCreated) {
+                    reply(LANPacketType::ScanResp, &this->discovery->networkInfo, sizeof(NetworkInfo));
+                }
                 break;
             }
             case LANPacketType::ScanResp: {
@@ -439,7 +441,8 @@ LANDiscovery::~LANDiscovery() {
 }
 
 void LANDiscovery::worker() {
-    while (!stop) {
+    this->stop = false;
+    while (!this->stop) {
 
         int rc = loopPoll();
         if (rc < 0) {
@@ -547,6 +550,8 @@ Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const U
 }
 
 Result LANDiscovery::destroyNetwork() {
+
+    this->tcp.reset();
     this->resetStations();
 
     this->setState(CommState::AccessPoint);
@@ -567,6 +572,9 @@ Result LANDiscovery::openAccessPoint() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
+    this->tcp.reset();
+    this->resetStations();
+
     this->setState(CommState::AccessPoint);
 
     return 0;
@@ -576,6 +584,9 @@ Result LANDiscovery::closeAccessPoint() {
     if (this->state == CommState::None) {
         return MAKERESULT(LdnModuleId, 32);
     }
+
+    this->tcp.reset();
+    this->resetStations();
 
     this->setState(CommState::Initialized);
 
@@ -587,6 +598,9 @@ Result LANDiscovery::openStation() {
         return MAKERESULT(LdnModuleId, 32);
     }
 
+    this->tcp.reset();
+    this->resetStations();
+
     this->setState(CommState::Station);
 
     return 0;
@@ -596,6 +610,9 @@ Result LANDiscovery::closeStation() {
     if (this->state == CommState::None) {
         return MAKERESULT(LdnModuleId, 32);
     }
+
+    this->tcp.reset();
+    this->resetStations();
 
     this->setState(CommState::Initialized);
 
@@ -645,12 +662,10 @@ Result LANDiscovery::finalize() {
     if (this->inited) {
         this->stop = true;
         this->workerThread.Join();
-        this->inited = false;
         this->udp.reset();
         this->tcp.reset();
-        for (auto& i : stations) {
-            i.reset();
-        }
+        this->resetStations();
+        this->inited = false;
     }
 
     this->setState(CommState::None);
