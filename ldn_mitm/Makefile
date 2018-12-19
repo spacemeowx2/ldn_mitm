@@ -1,4 +1,4 @@
-GITDESCVER := $(shell git describe --tags)
+GITDESCVER := $(shell git describe --tags --dirty)
 
 #---------------------------------------------------------------------------------
 .SUFFIXES:
