@@ -180,8 +180,14 @@ Result LANDiscovery::setAdvertiseData(const u8 *data, uint16_t size) {
         return MAKERESULT(ModuleID, 10);
     }
 
-    std::memcpy(networkInfo.ldn.advertiseData, data, size);
-    networkInfo.ldn.advertiseDataSize = size;
+    if (size > 0 && data != nullptr) {
+        std::memcpy(this->networkInfo.ldn.advertiseData, data, size);
+    } else {
+        LogFormat("LANDiscovery::setAdvertiseData data %p size %lu", data, size);
+    }
+    this->networkInfo.ldn.advertiseDataSize = size;
+
+    this->updateNodes();
 
     return 0;
 }
@@ -669,6 +675,7 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
         LogFormat("sendPacket failed");
         return MAKERESULT(ModuleID, 32);
     }
+    this->initNodeStateChange();
 
     svcSleepThread(1000000000L); // 1sec
 
