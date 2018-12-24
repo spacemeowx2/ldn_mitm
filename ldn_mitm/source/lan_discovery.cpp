@@ -250,7 +250,11 @@ Result LANDiscovery::initTcp(bool listening) {
     int fd;
     int rc;
     struct sockaddr_in addr;
+    std::scoped_lock<HosMutex> lock(this->pollMutex);
 
+    if (this->tcp) {
+        this->tcp->close();
+    }
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
         return MAKERESULT(ModuleID, 6);
@@ -273,10 +277,7 @@ Result LANDiscovery::initTcp(bool listening) {
         return rc;
     }
 
-    {
-        std::scoped_lock<HosMutex> lock(this->pollMutex);
-        this->tcp = std::move(tcpSocket);
-    }
+    this->tcp = std::move(tcpSocket);
 
     return 0;
 }
@@ -285,7 +286,11 @@ Result LANDiscovery::initUdp(bool listening) {
     int fd;
     int rc;
     struct sockaddr_in addr;
+    std::scoped_lock<HosMutex> lock(this->pollMutex);
 
+    if (this->udp) {
+        this->udp->close();
+    }
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
         return MAKERESULT(ModuleID, 1);
@@ -305,10 +310,7 @@ Result LANDiscovery::initUdp(bool listening) {
         return rc;
     }
 
-    {
-        std::scoped_lock<HosMutex> lock(this->pollMutex);
-        this->udp = std::move(udpSocket);
-    }
+    this->udp = std::move(udpSocket);
 
     return 0;
 }
@@ -709,7 +711,7 @@ Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
     }
 
     this->lanEvent = lanEvent;
-    Result rc = initUdp(listening);
+    Result rc = this->initUdp(listening);
     if (R_FAILED(rc)) {
         LogFormat("initUdp %x", rc);
         return rc;
