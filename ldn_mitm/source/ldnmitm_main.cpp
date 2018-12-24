@@ -96,7 +96,6 @@ void __appInit(void) {
         fatalLater(rc);
     }
 
-    CheckAtmosphereVersion(0, 8, 0);
     LogFormat("__appInit done");
 }
 
