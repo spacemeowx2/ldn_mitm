@@ -695,7 +695,7 @@ Result LANDiscovery::finalize() {
     if (this->inited) {
         this->stop = true;
         rc = this->workerThread.Join();
-        if (R_FARILD(rc)) {
+        if (R_FAILED(rc)) {
             LogFormat("thread.join %d", rc);
         }
         this->udp.reset();
