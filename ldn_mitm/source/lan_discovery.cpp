@@ -453,6 +453,11 @@ int LANDiscovery::loopPoll() {
 
 LANDiscovery::~LANDiscovery() {
     LogFormat("~LANDiscovery");
+    if (this->inited) {
+        LogFormat("finalize not called");
+        Result rc = this->finalize();
+        LogFormat("finalize: %d", rc);
+    }
 }
 
 void LANDiscovery::worker() {
@@ -685,9 +690,14 @@ Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u
 }
 
 Result LANDiscovery::finalize() {
+    Result rc = 0;
+
     if (this->inited) {
         this->stop = true;
-        this->workerThread.Join();
+        rc = this->workerThread.Join();
+        if (R_FARILD(rc)) {
+            LogFormat("thread.join %d", rc);
+        }
         this->udp.reset();
         this->tcp.reset();
         this->resetStations();
