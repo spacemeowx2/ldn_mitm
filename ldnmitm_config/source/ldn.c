@@ -211,14 +211,44 @@ Result ldnCreateUserLocalCommunicationService(Service* s, UserLocalCommunication
     return rc;
 }
 
-Result ldnMitmGetVersion(char *version) {
-    Result rc = 0;
-    Service s;
+Result ldnMitmGetConfig(Service* s, LdnMitmConfigService *out) {
+    IpcCommand c;
+    ipcInitialize(&c);
 
-    rc = smGetService(&s, "ldnmitm");
-    if (R_FAILED(rc)) {
-        goto quit;
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65000;
+
+    Result rc = serviceIpcDispatch(s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+        } *resp;
+        
+        serviceIpcParse(s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+
+        if (R_SUCCEEDED(rc)) {
+            serviceCreateSubservice(&out->s, s, &r, 0);
+        }
     }
+
+    return rc;
+}
+
+Result ldnMitmGetLogging(LdnMitmConfigService *s, u32 *enabled) {
+    Result rc = 0;
 
     IpcCommand c;
     ipcInitialize(&c);
@@ -228,12 +258,162 @@ Result ldnMitmGetVersion(char *version) {
         u64 cmd_id;
     } *raw;
 
-    raw = serviceIpcPrepareHeader(&s, &c, sizeof(*raw));
+    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65002;
+
+    rc = serviceIpcDispatch(&s->s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+            u32 enabled;
+        } *resp;
+
+        serviceIpcParse(&s->s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+        if (R_SUCCEEDED(rc)) {
+            *enabled = resp->enabled;
+        }
+    }
+
+    return rc;
+}
+
+Result ldnMitmSetLogging(LdnMitmConfigService *s, u32 enabled) {
+    Result rc = 0;
+
+    IpcCommand c;
+    ipcInitialize(&c);
+
+    struct {
+        u64 magic;
+        u64 cmd_id;
+        u32 enabled;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65003;
+    raw->enabled = enabled;
+
+    rc = serviceIpcDispatch(&s->s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+            u32 enabled;
+        } *resp;
+
+        serviceIpcParse(&s->s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+    }
+
+    return rc;
+}
+
+Result ldnMitmGetEnabled(LdnMitmConfigService *s, u32 *enabled) {
+    Result rc = 0;
+
+    IpcCommand c;
+    ipcInitialize(&c);
+
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65004;
+
+    rc = serviceIpcDispatch(&s->s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+            u32 enabled;
+        } *resp;
+
+        serviceIpcParse(&s->s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+        if (R_SUCCEEDED(rc)) {
+            *enabled = resp->enabled;
+        }
+    }
+
+    return rc;
+}
+
+Result ldnMitmSetEnabled(LdnMitmConfigService *s, u32 enabled) {
+    Result rc = 0;
+
+    IpcCommand c;
+    ipcInitialize(&c);
+
+    struct {
+        u64 magic;
+        u64 cmd_id;
+        u32 enabled;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 65005;
+    raw->enabled = enabled;
+
+    rc = serviceIpcDispatch(&s->s);
+
+    if (R_SUCCEEDED(rc)) {
+        IpcParsedCommand r;
+        struct {
+            u64 magic;
+            u64 result;
+            u32 enabled;
+        } *resp;
+
+        serviceIpcParse(&s->s, &r, sizeof(*resp));
+        resp = r.Raw;
+
+        rc = resp->result;
+    }
+
+    return rc;
+}
+
+Result ldnMitmGetVersion(LdnMitmConfigService *s, char *version) {
+    Result rc = 0;
+
+    IpcCommand c;
+    ipcInitialize(&c);
+
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
 
     raw->magic = SFCI_MAGIC;
     raw->cmd_id = 65001;
 
-    rc = serviceIpcDispatch(&s);
+    rc = serviceIpcDispatch(&s->s);
 
     if (R_SUCCEEDED(rc)) {
         IpcParsedCommand r;
@@ -242,8 +422,8 @@ Result ldnMitmGetVersion(char *version) {
             u64 result;
             char version[32];
         } *resp;
-        
-        serviceIpcParse(&s, &r, sizeof(*resp));
+
+        serviceIpcParse(&s->s, &r, sizeof(*resp));
         resp = r.Raw;
 
         rc = resp->result;
@@ -251,20 +431,12 @@ Result ldnMitmGetVersion(char *version) {
             strcpy(version, resp->version);
         }
     }
-    serviceClose(&s);
 
-quit:
     return rc;
 }
 
-Result ldnMitmSaveLogToFile() {
+Result ldnMitmSaveLogToFile(LdnMitmConfigService *s) {
     Result rc = 0;
-    Service s;
-
-    rc = smGetService(&s, "ldnmitm");
-    if (R_FAILED(rc)) {
-        goto quit;
-    }
 
     IpcCommand c;
     ipcInitialize(&c);
@@ -274,12 +446,12 @@ Result ldnMitmSaveLogToFile() {
         u64 cmd_id;
     } *raw;
 
-    raw = serviceIpcPrepareHeader(&s, &c, sizeof(*raw));
+    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
 
     raw->magic = SFCI_MAGIC;
     raw->cmd_id = 65000;
 
-    rc = serviceIpcDispatch(&s);
+    rc = serviceIpcDispatch(&s->s);
 
     if (R_SUCCEEDED(rc)) {
         IpcParsedCommand r;
@@ -288,13 +460,11 @@ Result ldnMitmSaveLogToFile() {
             u64 result;
         } *resp;
         
-        serviceIpcParse(&s, &r, sizeof(*resp));
+        serviceIpcParse(&s->s, &r, sizeof(*resp));
         resp = r.Raw;
 
         rc = resp->result;
     }
-    serviceClose(&s);
 
-quit:
     return rc;
 }

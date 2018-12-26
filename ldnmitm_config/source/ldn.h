@@ -8,6 +8,9 @@ extern "C" {
 typedef struct {
     Service s;
 } UserLocalCommunicationService;
+typedef struct {
+    Service s;
+} LdnMitmConfigService;
 #define SsidLengthMax 32
 #define AdvertiseDataSizeMax 384
 #define UserNameBytesMax 32
@@ -122,8 +125,13 @@ Result ldnCreateUserLocalCommunicationService(Service* s, UserLocalCommunication
 Result ldnInitialize(UserLocalCommunicationService* s);
 Result ldnOpenStation(UserLocalCommunicationService* s);
 Result ldnGetState(UserLocalCommunicationService* s, u32* state);
-Result ldnMitmSaveLogToFile();
-Result ldnMitmGetVersion(char *version);
+Result ldnMitmSaveLogToFile(LdnMitmConfigService *s);
+Result ldnMitmGetVersion(LdnMitmConfigService *s, char *version);
+Result ldnMitmGetLogging(LdnMitmConfigService *s, u32 *enabled);
+Result ldnMitmSetLogging(LdnMitmConfigService *s, u32 enabled);
+Result ldnMitmGetEnabled(LdnMitmConfigService *s, u32 *enabled);
+Result ldnMitmSetEnabled(LdnMitmConfigService *s, u32 enabled);
+Result ldnMitmGetConfig(Service* s, LdnMitmConfigService *out);
 void NetworkInfo2NetworkConfig(NetworkInfo* info, NetworkConfig* out);
 void NetworkInfo2SecurityParameter(NetworkInfo* info, SecurityParameter* out);
 

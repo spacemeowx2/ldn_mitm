@@ -7,9 +7,15 @@ endif
 TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/libnx/switch_rules
 
+GITREV := $(shell git rev-parse HEAD 2>/dev/null | cut -c1-8)
+VERSION := 1.0.0
+ifneq ($(strip $(GITREV)),)
+VERSION := $(VERSION)-$(GITREV)
+endif
+
 APP_AUTHOR  :=  spacemeowx2
-APP_TITLE   :=  ldn_mitm_debug
-APP_VERSION :=  1.0.0
+APP_TITLE   :=  ldnmitm cfg
+APP_VERSION :=  $(VERSION)
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
@@ -23,7 +29,7 @@ ARCH	:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
-CFLAGS	+=	$(INCLUDE) -D__SWITCH__
+CFLAGS	+=	$(INCLUDE) -D__SWITCH__ -DVERSION_STRING="\"${VERSION}\""
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
