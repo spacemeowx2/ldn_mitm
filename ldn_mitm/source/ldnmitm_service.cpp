@@ -21,10 +21,15 @@
 #include "ldn_icommunication.hpp"
 
 Result LdnMitMService::CreateUserLocalCommunicationService(Out<std::shared_ptr<ICommunicationInterface>> out) {
-    auto comm = std::make_shared<ICommunicationInterface>();
-    out.SetValue(std::move(comm));
+    LogFormat("CreateUserLocalCommunicationService: enabled %d", static_cast<u32>(LdnConfig::getEnabled()));
 
-    return 0;
+    if (LdnConfig::getEnabled()) {
+        auto comm = std::make_shared<ICommunicationInterface>();
+        out.SetValue(std::move(comm));
+        return 0;
+    }
+
+    return RESULT_FORWARD_TO_SESSION;
 }
 Result LdnMitMService::CreateLdnMitmConfigService(Out<std::shared_ptr<LdnConfig>> out) {
     out.SetValue(std::move(std::make_shared<LdnConfig>()));

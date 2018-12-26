@@ -13,7 +13,7 @@ Result saveLogToFile() {
     Result rc = 0;
     rc = ldnMitmSaveLogToFile(&g_ldnConfig);
     if (R_FAILED(rc)) {
-        printf("Save log to file failed\n");
+        printf("Save log to file failed %x\n", rc);
         return rc;
     }
 
@@ -48,7 +48,7 @@ void printHeader() {
         strcpy(version, "Error");
     }
 
-    printf("        ldnmitm_config " VERSION_STRING "\n    ldn_mitm version: %s\n\n", version);
+    printf("    ldnmitm_config " VERSION_STRING "\n    ldn_mitm version: %s\n\n", version);
 }
 
 const char * getOnOff(u32 enabled) {
@@ -65,13 +65,13 @@ void printStatus() {
     if (R_FAILED(rc)) {
         die("failed to get logging status");
     }
-    printf("Logging: %s\n", getOnOff(enabled));
+    printf("Logging(X): %s\n", getOnOff(enabled));
 
     rc = ldnMitmGetEnabled(&g_ldnConfig, &enabled);
     if (R_FAILED(rc)) {
         die("failed to get enabled status");
     }
-    printf("ldn_mitm: %s\n", getOnOff(enabled));
+    printf("ldn_mitm(Y): %s\n", getOnOff(enabled));
 
     putchar('\n');
     puts("Press X: toggle logging (sd:/ldn_mitm.log)");
@@ -131,6 +131,13 @@ int main() {
 
         if (kDown & KEY_B) {
             break;
+        }
+
+        if (kDown & KEY_LSTICK) {
+            Result rc = saveLogToFile();
+            if (R_SUCCEEDED(rc)) {
+                puts("Export complete");
+            }
         }
 
         if (kDown & KEY_X) {

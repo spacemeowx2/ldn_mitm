@@ -19,8 +19,8 @@ class LdnMitMService : public IMitmServiceObject {
         }
         
         static bool ShouldMitm(u64 pid, u64 tid) {
-            LogFormat("should_mitm pid: %" PRIu64 " tid: %" PRIx64 " enabled: %d", pid, tid, static_cast<u32>(LdnConfig::getEnabled()));
-            return LdnConfig::getEnabled();
+            LogFormat("should_mitm pid: %" PRIu64 " tid: %" PRIx64, pid, tid);
+            return true;
         }
         
         static void PostProcess(IMitmServiceObject *obj, IpcResponseContext *ctx) {};
