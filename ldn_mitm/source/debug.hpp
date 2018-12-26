@@ -19,9 +19,11 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+Result SetLogging(u32 enabled);
+Result GetLogging(u32 *enabled);
 void LogHex(const void *data, int size);
 bool GetCurrentTime(u64 *out);
-bool SaveLogToFile();
+Result SaveLogToFile();
 
 template<typename... TS>
 void LogFormat(const char *fmt, TS... args) {

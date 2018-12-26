@@ -18,21 +18,19 @@
 #include <cstring>
 #include <cstdio>
 #include <ctime>
+#include <atomic>
 #include "debug.hpp"
 
 const size_t TlsBackupSize = 0x100;
 // 1MB
 const size_t MemoryLogSize = 0x400 * 0x400;
-#ifndef ENABLE_LOG
-#define ENABLE_LOG 0
-#endif
+
 #ifndef ENABLE_MEMLOG
 #define ENABLE_MEMLOG 1
 #endif
 
-#if ENABLE_LOG
+static std::atomic_bool g_logging_enabled = false;
 static Mutex g_file_mutex = 0;
-#endif
 #if ENABLE_MEMLOG
 static char MemoryLog[MemoryLogSize] = {0};
 static size_t MemoryLogPos = 0;
@@ -42,41 +40,47 @@ static Mutex MemoryLogMutex = 0;
 #define RESTORE_TLS() memcpy(armGetTls(), _tls_backup, TlsBackupSize);
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
+
+Result SetLogging(u32 enabled) {
+    g_logging_enabled = enabled;
+    return 0;
+}
+Result GetLogging(u32 *enabled) {
+    *enabled = g_logging_enabled;
+    return 0;
+}
+
 void LogStr(const char *str);
 
 void LogHex(const void *data, int size) {
-    (void)(data);
-    (void)(size);
-    /* ... */
-#if ENABLE_LOG
-    u8 *dat = (u8 *)data;
-    char buf[128];
-    LogFormat("Bin Log: %d (%p)", size, data);
-    for (int i = 0; i < size; i += 16) {
-        int s = MIN(size - i, 16);
-        buf[0] = 0;
-        for (int j = 0; j < s; j++) {
-            sprintf(buf + strlen(buf), "%02x", dat[i + j]);
+    if (g_logging_enabled) {
+        u8 *dat = (u8 *)data;
+        char buf[128];
+        LogFormat("Bin Log: %d (%p)", size, data);
+        for (int i = 0; i < size; i += 16) {
+            int s = MIN(size - i, 16);
+            buf[0] = 0;
+            for (int j = 0; j < s; j++) {
+                sprintf(buf + strlen(buf), "%02x", dat[i + j]);
+            }
+            sprintf(buf + strlen(buf), "\n");
+            LogStr(buf);
         }
-        sprintf(buf + strlen(buf), "\n");
-        LogStr(buf);
     }
-#endif
 }
 
 void LogStr(const char *str) {
-    (void)(str);
     BACKUP_TLS();
     size_t len = strlen(str);
-#if ENABLE_LOG
-    mutexLock(&g_file_mutex);
-    FILE *file = fopen("sdmc:/ldn_mitm.log", "ab+");
-    if (file) {
-        fwrite(str, 1, len, file);
-        fclose(file);
+    if (g_logging_enabled) {
+        mutexLock(&g_file_mutex);
+        FILE *file = fopen("sdmc:/ldn_mitm.log", "ab+");
+        if (file) {
+            fwrite(str, 1, len, file);
+            fclose(file);
+        }
+        mutexUnlock(&g_file_mutex);
     }
-    mutexUnlock(&g_file_mutex);
-#endif
 #if ENABLE_MEMLOG
     mutexLock(&MemoryLogMutex);
     if (MemoryLogPos + len >= MemoryLogSize) {
@@ -105,12 +109,12 @@ void LogStr(const char *str) {
     RESTORE_TLS();
 }
 
-bool SaveLogToFile() {
-    bool ret = false;
+Result SaveLogToFile() {
+    Result ret = 0xCAFE;
 #if ENABLE_MEMLOG
     u64 curtime;
     if (!GetCurrentTime(&curtime)) {
-        return false;
+        return 0xCAFF;
     }
     mutexLock(&MemoryLogMutex);
     FILE *file = fopen("sdmc:/ldn_mitm_memlog.log", "ab+");
@@ -119,11 +123,11 @@ bool SaveLogToFile() {
         fwrite(MemoryLog, 1, MemoryLogPos, file);
         fclose(file);
         MemoryLogPos = 0;
-        ret = true;
+        ret = 0;
     }
     mutexUnlock(&MemoryLogMutex);
 #else
-    ret = false;
+    ret = 0xCAFC;
 #endif
     return ret;
 }
