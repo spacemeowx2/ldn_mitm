@@ -19,6 +19,7 @@ pipeline:
     secrets: [ github_token ]
     files:
       - ldn_mitm/ldn_mitm*.kip
+      - ldnmitm_config/ldnmitm_config.nro
     checksum:
        - sha1
     prerelease: true
