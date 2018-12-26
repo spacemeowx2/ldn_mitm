@@ -20,11 +20,14 @@
 #include "ldnmitm_service.hpp"
 #include "ldn_icommunication.hpp"
 
-std::atomic<u32> LdnMitMService::Enabled = 1;
-
 Result LdnMitMService::CreateUserLocalCommunicationService(Out<std::shared_ptr<ICommunicationInterface>> out) {
     auto comm = std::make_shared<ICommunicationInterface>();
     out.SetValue(std::move(comm));
+
+    return 0;
+}
+Result LdnMitMService::CreateLdnMitmConfigService(Out<std::shared_ptr<LdnConfig>> out) {
+    out.SetValue(std::move(std::make_shared<LdnConfig>()));
 
     return 0;
 }
