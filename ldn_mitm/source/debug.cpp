@@ -106,6 +106,7 @@ void LogStr(const char *str) {
 }
 
 bool SaveLogToFile() {
+    bool ret = false;
 #if ENABLE_MEMLOG
     u64 curtime;
     if (!GetCurrentTime(&curtime)) {
@@ -117,49 +118,16 @@ bool SaveLogToFile() {
         fprintf(file, "ldn_mitm memory log dump\nversion: " GITDESCVER "\ntimestamp: %" PRIu64 "\n\n", curtime);
         fwrite(MemoryLog, 1, MemoryLogPos, file);
         fclose(file);
+        MemoryLogPos = 0;
+        ret = true;
     }
-    MemoryLogPos = 0;
     mutexUnlock(&MemoryLogMutex);
-    return true;
 #else
-    return false;
+    ret = false;
 #endif
+    return ret;
 }
 
-struct fatalLaterIpc
-{
-    u64 magic;
-    u64 cmd_id;
-    u64 result;
-    u64 unknown;
-};
-void fatalLater(Result err)
-{
-    Handle srv;
-
-    while (R_FAILED(smGetServiceOriginal(&srv, smEncodeName("fatal:u"))))
-    {
-        // wait one sec and retry
-        svcSleepThread(1000000000L);
-    }
-
-    // fatal is here time, fatal like a boss
-    IpcCommand c;
-    ipcInitialize(&c);
-    ipcSendPid(&c);
-
-    struct fatalLaterIpc* raw;
-
-    raw = (struct fatalLaterIpc*) ipcPrepareHeader(&c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 1;
-    raw->result = err;
-    raw->unknown = 0;
-
-    ipcDispatch(srv);
-    svcCloseHandle(srv);
-}
 bool GetCurrentTime(u64 *out) {
     *out = 0;
     *out = (armGetSystemTick() * 625 / 12) / 1000000;

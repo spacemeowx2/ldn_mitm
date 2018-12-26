@@ -24,8 +24,6 @@
 
 #include "ldnmitm_service.hpp"
 
-#define TITLE_ID 0x4200000000000010
-
 extern "C" {
     extern u32 __start__;
 
@@ -53,51 +51,32 @@ void __libnx_initheap(void) {
     fake_heap_end   = (char*)addr + size;
 }
 
-void registerFspLr()
-{
-    if (kernelAbove400())
-        return;
-
-    Result rc = fsprInitialize();
-    if (R_FAILED(rc))
-        fatalLater(rc);
-
-    u64 pid;
-    svcGetProcessId(&pid, CUR_PROCESS_HANDLE);
-
-    rc = fsprRegisterProgram(pid, TITLE_ID, FsStorageId_NandSystem, NULL, 0, NULL, 0);
-    if (R_FAILED(rc))
-        fatalLater(rc);
-    fsprExit();
-}
-
 void __appInit(void) {
     Result rc;
     svcSleepThread(10000000000L);
     
     rc = smInitialize();
     if (R_FAILED(rc)) {
-        fatalLater(rc);
+        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
     }
     
     rc = fsInitialize();
     if (R_FAILED(rc)) {
-        fatalLater(rc);
+        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
     }
-    registerFspLr();
-    
+
     rc = fsdevMountSdmc();
     if (R_FAILED(rc)) {
-        fatalLater(rc);
+        fatalSimple(rc);
     }
 
     rc = ipinfoInit();
     if (R_FAILED(rc)) {
-        fatalLater(rc);
+        fatalSimple(rc);
     }
 
     #define SOCK_BUFFERSIZE 0x1000
-    static const SocketInitConfig socketInitConfig = {
+    const SocketInitConfig socketInitConfig = {
         .bsdsockets_version = 1,
 
         .tcp_tx_buf_size = 8 * SOCK_BUFFERSIZE,
@@ -112,7 +91,7 @@ void __appInit(void) {
     };
     rc = socketInitialize(&socketInitConfig);
     if (R_FAILED(rc)) {
-        fatalLater(rc);
+        fatalSimple(rc);
     }
 
     LogFormat("__appInit done");
@@ -156,7 +135,6 @@ int main(int argc, char **argv)
 {
     LogFormat("main");
 
-    /* TODO: What's a good timeout value to use here? */
     auto server_manager = new LdnMitmManager(2);
 
     /* Create ldn:u mitm. */

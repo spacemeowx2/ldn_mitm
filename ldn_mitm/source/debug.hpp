@@ -20,7 +20,6 @@
 #include <stdio.h>
 
 void LogHex(const void *data, int size);
-void fatalLater(Result err);
 bool GetCurrentTime(u64 *out);
 bool SaveLogToFile();
 
