@@ -48,7 +48,7 @@ void printHeader() {
         strcpy(version, "Error");
     }
 
-    printf("    ldnmitm_config " VERSION_STRING "\n    ldn_mitm version: %s\n\n", version);
+    printf("    ldnmitm_config " VERSION_STRING "\n          ldn_mitm %s\n\n", version);
 }
 
 const char * getOnOff(u32 enabled) {
