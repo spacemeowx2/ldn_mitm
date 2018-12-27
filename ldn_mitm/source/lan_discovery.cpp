@@ -702,6 +702,12 @@ Result LANDiscovery::finalize() {
         this->tcp.reset();
         this->resetStations();
         this->inited = false;
+
+        rc = nifmCancelRequest();
+        if (R_FAILED(rc)) {
+            LogFormat("nifmCancelRequest failed");
+            return rc;
+        }
     }
 
     this->setState(CommState::None);
@@ -714,6 +720,17 @@ Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
         return 0;
     }
 
+    Result rc = nifmSetLocalNetworkMode(true);
+    if (R_FAILED(rc)) {
+        LogFormat("nifmSetLocalNetworkMode failed");
+        return rc;
+    }
+    rc = nifmSubmitRequestAndWait();
+    if (R_FAILED(rc)) {
+        LogFormat("nifmSubmitRequestAndWait failed");
+        return rc;
+    }
+
     for (auto &i : stations) {
         i.discovery = this;
         i.nodeInfo = &this->networkInfo.ldn.nodes[i.nodeId];
@@ -721,7 +738,7 @@ Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
     }
 
     this->lanEvent = lanEvent;
-    Result rc = this->initUdp(listening);
+    rc = this->initUdp(listening);
     if (R_FAILED(rc)) {
         LogFormat("initUdp %x", rc);
         return rc;
