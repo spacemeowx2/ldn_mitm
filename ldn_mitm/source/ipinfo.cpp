@@ -147,7 +147,6 @@ Result nifmCancelRequest() {
         struct {
             u64 magic;
             u64 result;
-            s32 state;
         } *resp;
 
         serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
@@ -216,7 +215,7 @@ Result _nifmGetIReq() {
 
     raw->magic = SFCI_MAGIC;
     raw->cmd_id = 4;
-    raw->param = 0;
+    raw->param = 2;
 
     Result rc = serviceIpcDispatch(&g_nifmIGS);
 
@@ -306,7 +305,6 @@ Result _nifmSetConnectionConfirmationOption(s8 option) {
         struct {
             u64 magic;
             u64 result;
-            s32 state;
         } *resp;
 
         serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
