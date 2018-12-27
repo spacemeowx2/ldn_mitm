@@ -119,7 +119,7 @@ Result nifmSubmitRequestAndWait() {
         if (state == 3) {
             rc = 0;
         } else {
-            rc = MAKERESULT(ModuleID, 50);
+            rc = _nifmGetResult();
         }
     }
 
