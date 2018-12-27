@@ -1,4 +1,5 @@
 #include "ipinfo.hpp"
+#include "debug.hpp"
 #include <arpa/inet.h>
 
 static Service g_nifmSrv;
@@ -9,6 +10,10 @@ static const int ModuleID = 0xFE;
 
 Result _nifmGetIGS();
 Result _nifmGetIReq();
+Result _nifmGetRequestState(s32 *state);
+Result _nifmGetResult();
+Result _nifmSetConnectionConfirmationOption(s8 option);
+Result _nifmSubmitRequest();
 
 Result ipinfoInit() {
     atomicIncrement64(&g_nifmRefCount);
@@ -89,14 +94,69 @@ Result ipinfoGetIpConfig(u32* address, u32* netmask) {
     return rc;
 }
 
-Result nifmSubmitRequestAndWait() {
-    return 0;
-}
-Result nifmCancelRequest() {
-    return 0;
-}
 Result nifmSetLocalNetworkMode(bool isLocalNetworkMode) {
-    return 0;
+    s8 option = isLocalNetworkMode ? 2 : 4;
+    return _nifmSetConnectionConfirmationOption(option);
+}
+
+Result nifmSubmitRequestAndWait() {
+    Result rc = 0;
+    s32 state;
+
+    rc = _nifmSubmitRequest();
+    if (R_SUCCEEDED(rc)) {
+        while (R_SUCCEEDED(_nifmGetRequestState(&state))) {
+            // pending
+            if (state != 2) {
+                break;
+            }
+            svcSleepThread(100000000L); // 100ms
+        }
+    }
+
+    rc = _nifmGetRequestState(&state);
+    if (R_SUCCEEDED(rc)) {
+        if (state == 3) {
+            rc = 0;
+        } else {
+            rc = MAKERESULT(ModuleID, 50);
+        }
+    }
+
+    return rc;
+}
+
+Result nifmCancelRequest() {
+    IpcCommand c;
+    IpcParsedCommand r;
+
+    ipcInitialize(&c);
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 3;
+
+    Result rc = serviceIpcDispatch(&g_nifmIReq);
+
+    if (R_SUCCEEDED(rc)) {
+        struct {
+            u64 magic;
+            u64 result;
+            s32 state;
+        } *resp;
+
+        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
+        resp = (decltype(resp))r.Raw;
+
+        rc = resp->result;
+    }
+
+    return rc;
 }
 
 Result _nifmGetIGS() {
@@ -146,7 +206,6 @@ Result _nifmGetIReq() {
     IpcParsedCommand r;
 
     ipcInitialize(&c);
-    ipcSendPid(&c);
     struct {
         u64 magic;
         u64 cmd_id;
@@ -181,4 +240,144 @@ Result _nifmGetIReq() {
     serviceCreateSubservice(&g_nifmIReq, &g_nifmIGS, &r, 0);
 
     return 0;
+}
+
+Result _nifmGetRequestState(s32 *state) {
+    IpcCommand c;
+    IpcParsedCommand r;
+
+    ipcInitialize(&c);
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 0;
+
+    Result rc = serviceIpcDispatch(&g_nifmIReq);
+
+    if (R_SUCCEEDED(rc)) {
+        struct {
+            u64 magic;
+            u64 result;
+            s32 state;
+        } *resp;
+
+        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
+        resp = (decltype(resp))r.Raw;
+
+        rc = resp->result;
+
+        if (R_SUCCEEDED(rc)) {
+            *state = resp->state;
+            LogFormat("_nifmGetRequestState %d", *state);
+            if (*state == 1) {
+                LogFormat("result %d", _nifmGetResult());
+            }
+        }
+    }
+
+    return rc;
+}
+
+Result _nifmSetConnectionConfirmationOption(s8 option) {
+    IpcCommand c;
+    IpcParsedCommand r;
+
+    ipcInitialize(&c);
+    struct {
+        u64 magic;
+        u64 cmd_id;
+        s32 option;
+    } *raw;
+
+    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 11;
+    raw->option = option;
+
+    Result rc = serviceIpcDispatch(&g_nifmIReq);
+
+    if (R_SUCCEEDED(rc)) {
+        struct {
+            u64 magic;
+            u64 result;
+            s32 state;
+        } *resp;
+
+        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
+        resp = (decltype(resp))r.Raw;
+
+        rc = resp->result;
+    }
+
+    return rc;
+}
+
+Result _nifmSubmitRequest() {
+    IpcCommand c;
+    IpcParsedCommand r;
+
+    ipcInitialize(&c);
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 4;
+
+    Result rc = serviceIpcDispatch(&g_nifmIReq);
+
+    if (R_SUCCEEDED(rc)) {
+        struct {
+            u64 magic;
+            u64 result;
+        } *resp;
+
+        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
+        resp = (decltype(resp))r.Raw;
+
+        rc = resp->result;
+    }
+
+    return rc;
+}
+
+Result _nifmGetResult() {
+    IpcCommand c;
+    IpcParsedCommand r;
+
+    ipcInitialize(&c);
+    struct {
+        u64 magic;
+        u64 cmd_id;
+    } *raw;
+
+    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
+
+    raw->magic = SFCI_MAGIC;
+    raw->cmd_id = 1;
+
+    Result rc = serviceIpcDispatch(&g_nifmIReq);
+
+    if (R_SUCCEEDED(rc)) {
+        struct {
+            u64 magic;
+            u64 result;
+        } *resp;
+
+        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
+        resp = (decltype(resp))r.Raw;
+
+        rc = resp->result;
+    }
+
+    return rc;
 }
