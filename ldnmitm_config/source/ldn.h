@@ -131,7 +131,7 @@ Result ldnMitmGetLogging(LdnMitmConfigService *s, u32 *enabled);
 Result ldnMitmSetLogging(LdnMitmConfigService *s, u32 enabled);
 Result ldnMitmGetEnabled(LdnMitmConfigService *s, u32 *enabled);
 Result ldnMitmSetEnabled(LdnMitmConfigService *s, u32 enabled);
-Result ldnMitmGetConfig(Service* s, LdnMitmConfigService *out);
+Result ldnMitmGetConfig(LdnMitmConfigService *out);
 void NetworkInfo2NetworkConfig(NetworkInfo* info, NetworkConfig* out);
 void NetworkInfo2SecurityParameter(NetworkInfo* info, SecurityParameter* out);
 

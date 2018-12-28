@@ -8,7 +8,7 @@ TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/libnx/switch_rules
 
 GITREV := $(shell git rev-parse HEAD 2>/dev/null | cut -c1-8)
-VERSION := v1.0.0
+VERSION := v1.1.0
 ifneq ($(strip $(GITREV)),)
 VERSION := $(VERSION)-$(GITREV)
 endif

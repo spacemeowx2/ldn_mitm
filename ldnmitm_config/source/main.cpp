@@ -6,7 +6,6 @@
 #include "test.h"
 
 #define MODULEID 0x233
-static Service g_ldnSrv;
 static LdnMitmConfigService g_ldnConfig;
 
 Result saveLogToFile() {
@@ -21,7 +20,6 @@ Result saveLogToFile() {
 }
 
 void cleanup() {
-    serviceClose(&g_ldnSrv);
     serviceClose(&g_ldnConfig.s);
 }
 
@@ -115,13 +113,10 @@ int main() {
     gfxInitDefault();
     consoleInit(NULL);
 
-    Result rc = smGetService(&g_ldnSrv, "ldn:u");
+    Result rc = ldnMitmGetConfig(&g_ldnConfig);
     if (R_FAILED(rc)) {
-        die("failed to get service ldn:u");
-    }
-    rc = ldnMitmGetConfig(&g_ldnSrv, &g_ldnConfig);
-    if (R_FAILED(rc)) {
-        die("ldn_mitm is not loaded or too old(requires ldn_mitm > v1.0)");
+        printf("error code: %x\n", rc);
+        die("ldn_mitm is not loaded or too old(requires ldn_mitm >= v1.1.1)");
     }
 
     reprint();
