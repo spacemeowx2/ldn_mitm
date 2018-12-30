@@ -213,8 +213,10 @@ Result ldnCreateUserLocalCommunicationService(Service* s, UserLocalCommunication
 
 Result ldnMitmGetConfig(LdnMitmConfigService *out) {
     Handle handle;
-    Result rc = svcConnectToNamedPort(&handle, "ldnmitm:cfg");
-    serviceCreate(&out->s, handle);
+    Result rc = svcConnectToNamedPort(&handle, "ldnmitm");
+    if (R_SUCCEEDED(rc)) {
+        serviceCreate(&out->s, handle);
+    }
     return rc;
 }
 
