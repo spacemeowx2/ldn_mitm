@@ -138,8 +138,8 @@ int main(int argc, char **argv)
     auto server_manager = new LdnMitmManager(2);
 
     /* Create ldn:u mitm. */
-    AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 0x40);
-    server_manager->AddWaitable(new ManagedPortServer<LdnConfig>("ldnmitm", 0x40));
+    AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 3);
+    server_manager->AddWaitable(new ManagedPortServer<LdnConfig>("ldnmitm", 3));
 
     /* Loop forever, servicing our services. */
     server_manager->Process();
