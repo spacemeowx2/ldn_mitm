@@ -1,5 +1,3 @@
-GITDESCVER := $(shell git describe --tags --dirty)
-
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 #---------------------------------------------------------------------------------
@@ -21,17 +19,24 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
+OUTDIR		:=	out
+RESOURCES	:=	res
 SOURCES		:=	source
 DATA		:=	data
 INCLUDES	:=	include
 EXEFS_SRC	:=	exefs_src
 
-DEFINES	:=	-DDISABLE_IPC -DGITDESCVER="\"${GITDESCVER}\""
+#---------------------------------------------------------------------------------
+# version control constants
+#---------------------------------------------------------------------------------
+TARGET_VERSION := $(shell git describe --tags --dirty)
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH	:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE
+DEFINES	:=	-DDISABLE_IPC -DGITDESCVER="\"${TARGET_VERSION}\""
+
+ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
@@ -59,11 +64,11 @@ LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(CURDIR)/../libstratosphere
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export OUTPUT	:=	$(CURDIR)/$(OUTDIR)/$(TARGET)
 export TOPDIR	:=	$(CURDIR)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
@@ -87,28 +92,18 @@ endif
 #---------------------------------------------------------------------------------
 
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
-			$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
 
 export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
-			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-			-I$(CURDIR)/$(BUILD)
+					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+					-I$(CURDIR)/$(BUILD)
 
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 export BUILD_EXEFS_SRC := $(TOPDIR)/$(EXEFS_SRC)
 
-ifeq ($(strip $(CONFIG_JSON)),)
-	jsons := $(wildcard *.json)
-	ifneq (,$(findstring $(TARGET).json,$(jsons)))
-		export APP_JSON := $(TOPDIR)/$(TARGET).json
-	else
-		ifneq (,$(findstring config.json,$(jsons)))
-			export APP_JSON := $(TOPDIR)/config.json
-		endif
-	endif
-else
-	export APP_JSON := $(TOPDIR)/$(CONFIG_JSON)
-endif
+export APP_JSON := $(TOPDIR)/$(RESOURCES)/app.json
+export KIP_JSON := $(TOPDIR)/$(RESOURCES)/kip.json
 
 .PHONY: $(BUILD) clean all
 
@@ -117,12 +112,14 @@ all: $(BUILD)
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
+	@[ -d $(OUTDIR) ] || mkdir -p $(OUTDIR)/4200000000000010
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@ cp $(OUTDIR)/ldn_mitm.nsp $(OUTDIR)/4200000000000010/exefs.nsp
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).kip $(TARGET).elf
+	@rm -fr $(BUILD) $(TARGET).kip $(TARGET).nsp $(TARGET).npdm $(TARGET).nso $(TARGET).elf $(OUTDIR)
 
 
 #---------------------------------------------------------------------------------
@@ -134,11 +131,15 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-all	:	$(OUTPUT).kip
+all: $(OUTPUT).kip $(OUTPUT).nsp
 
-$(OUTPUT).kip	:	$(OUTPUT).elf
+$(OUTPUT).nsp: $(OUTPUT).nso $(OUTPUT).npdm
 
-$(OUTPUT).elf	:	$(OFILES)
+$(OUTPUT).kip: $(OUTPUT).elf $(KIP_JSON)
+	@elf2kip $< $(KIP_JSON) $@
+	@echo built ... $(notdir $@)
+
+$(OUTPUT).elf: $(OFILES)
 
 #---------------------------------------------------------------------------------
 # you need a rule like this for each extension you use as binary data

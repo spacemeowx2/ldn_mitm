@@ -54,7 +54,9 @@ void __libnx_initheap(void) {
 void __appInit(void) {
     Result rc;
     svcSleepThread(10000000000L);
-    
+
+    SetFirmwareVersionForLibnx();
+
     rc = smInitialize();
     if (R_FAILED(rc)) {
         fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));

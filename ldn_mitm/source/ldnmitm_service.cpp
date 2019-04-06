@@ -29,7 +29,7 @@ Result LdnMitMService::CreateUserLocalCommunicationService(Out<std::shared_ptr<I
         return 0;
     }
 
-    return RESULT_FORWARD_TO_SESSION;
+    return ResultAtmosphereMitmShouldForwardToSession;
 }
 Result LdnMitMService::CreateLdnMitmConfigService(Out<std::shared_ptr<LdnConfig>> out) {
     out.SetValue(std::move(std::make_shared<LdnConfig>()));
