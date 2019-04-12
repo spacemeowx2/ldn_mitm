@@ -7,6 +7,7 @@ pipeline:
   build:
     image: devkitpro/devkita64_devkitarm:20181128
     commands:
+      - dkp-pacman -Sy --noconfirm libnx devkitA64
       - make -j8
   rename:
     image: alpine
