@@ -33,10 +33,9 @@ void die(const char *reason) {
         if (kDown) {
             break;
         }
-        gfxFlushBuffers();
-        gfxSwapBuffers();
+        consoleUpdate(NULL);
     }
-    gfxExit();
+    consoleExit(NULL);
     cleanup();
     exit(1);
 }
@@ -80,7 +79,6 @@ void printStatus() {
 }
 
 void reprint() {
-    gfxSetMode(GfxMode_TiledDouble);
     consoleClear();
 
     printHeader();
@@ -131,8 +129,7 @@ void getLdnMitmConfig() {
     die("ldn_mitm is not loaded or too old(requires ldn_mitm >= v1.1.2)");
 }
 
-int main() {
-    gfxInitDefault();
+int main(int argc, char* argv[]) {
     consoleInit(NULL);
 
     getLdnMitmConfig();
@@ -163,11 +160,10 @@ int main() {
             reprint();
         }
 
-        gfxFlushBuffers();
-        gfxSwapBuffers();
+        consoleUpdate(NULL);
     }
 
-    gfxExit();
+    consoleExit(NULL);
     cleanup();
     return 0;
 }
