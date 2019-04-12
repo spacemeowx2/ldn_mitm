@@ -1,8 +1,11 @@
-FROM devkitpro/devkita64_devkitarm:20181128
+FROM devkitpro/devkita64_devkitarm:20190212
 
-# RUN git clone https://github.com/switchbrew/libnx.git --depth=1 \
+RUN dkp-pacman -Sy --noconfirm libnx
+# RUN git clone -b v2.1.0 https://github.com/switchbrew/libnx.git --depth=1 \
 #     && cd libnx \
-#     && make install
+#     && make install \
+#     && cd .. \
+#     && rm -rf libnx
 
 VOLUME [ "/code" ]
 WORKDIR /code
