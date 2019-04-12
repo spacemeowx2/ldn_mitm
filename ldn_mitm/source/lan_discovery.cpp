@@ -744,12 +744,15 @@ Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
         return rc;
     }
 
-    if (R_FAILED(this->workerThread.Initialize(&Worker, this, 0x4000, 0x15, 2))) {
-        LogFormat("LANDiscovery Failed to threadCreate");
+    rc = this->workerThread.Initialize(&Worker, this, 0x4000, 0x15, 2);
+    if (R_FAILED(rc)) {
+        LogFormat("LANDiscovery Failed to threadCreate: %x", rc);
         return 0xF601;
     }
-    if (R_FAILED(this->workerThread.Start())) {
-        LogFormat("LANDiscovery Failed to threadStart");
+
+    rc = this->workerThread.Start();
+    if (R_FAILED(rc)) {
+        LogFormat("LANDiscovery Failed to threadStart %x", rc);
         return 0xF601;
     }
     this->setState(CommState::Initialized);
