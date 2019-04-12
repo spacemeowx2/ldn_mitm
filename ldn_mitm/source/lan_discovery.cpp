@@ -272,7 +272,7 @@ Result LANDiscovery::initTcp(bool listening) {
             return MAKERESULT(ModuleID, 8);
         }
     }
-    rc = setSocketOpts(fd);
+    rc = setSocketOpts(fd); 
     if (R_FAILED(rc)) {
         return rc;
     }
@@ -705,8 +705,7 @@ Result LANDiscovery::finalize() {
 
         rc = nifmCancelRequest();
         if (R_FAILED(rc)) {
-            LogFormat("nifmCancelRequest failed");
-            return rc;
+            LogFormat("nifmCancelRequest failed %x", rc);
         }
     }
 
@@ -722,13 +721,11 @@ Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
 
     Result rc = nifmSetLocalNetworkMode(true);
     if (R_FAILED(rc)) {
-        LogFormat("nifmSetLocalNetworkMode failed");
-        return rc;
+        LogFormat("nifmSetLocalNetworkMode failed %x", rc);
     }
     rc = nifmSubmitRequestAndWait();
     if (R_FAILED(rc)) {
-        LogFormat("nifmSubmitRequestAndWait failed");
-        return rc;
+        LogFormat("nifmSubmitRequestAndWait failed %x", rc);
     }
 
     for (auto &i : stations) {
