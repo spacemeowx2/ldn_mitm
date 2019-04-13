@@ -12,7 +12,19 @@ pipeline:
   rename:
     image: alpine
     commands:
-      - mv ./ldn_mitm/ldn_mitm.kip ./ldn_mitm/ldn_mitm_${DRONE_TAG}.kip
+      - mv ./ldn_mitm/out/ldn_mitm.kip ./ldn_mitm/ldn_mitm_${DRONE_TAG}.kip
+      - mkdir -p ./ldn_mitm/out/atmosphere/titles/4200000000000010/flags/
+      - mkdir -p ./ldn_mitm/out/switch/ldnmitm_config/
+      - cp -r ./ldn_mitm/out/4200000000000010/ ./ldn_mitm/out/atmosphere/titles/
+      - cp ./ldnmitm_config/ldnmitm_config.nro ./ldn_mitm/out/switch/ldnmitm_config/
+      - touch ./ldn_mitm/out/atmosphere/titles/4200000000000010/flags/boot2.flag
+    when:
+      event: tag
+  pack:
+    image: kramos/alpine-zip
+    commands:
+      - cd ./ldn_mitm/out
+      - zip -r ./ldn_mitm_${DRONE_TAG}.zip atmosphere switch
     when:
       event: tag
   github_pre_release:
@@ -20,6 +32,7 @@ pipeline:
     secrets: [ github_token ]
     files:
       - ldn_mitm/ldn_mitm*.kip
+      - ldn_mitm/out/ldn_mitm*.zip
       - ldnmitm_config/ldnmitm_config.nro
     checksum:
        - sha1
