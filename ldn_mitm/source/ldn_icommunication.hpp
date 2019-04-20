@@ -33,7 +33,7 @@ enum LdnCommCmd {
     LdnCommCmd_GetNetworkInfoLatestUpdate = 101,
     LdnCommCmd_Scan = 102,
     LdnCommCmd_ScanPrivate = 103,                       // nyi
-    LdnCommCmd_SetWirelessControllerRestriction = 104,  // nyi. Not sure the name of 104. guessed from smash
+    LdnCommCmd_SetWirelessControllerRestriction = 104,  // nyi
     LdnCommCmd_OpenAccessPoint = 200,
     LdnCommCmd_CloseAccessPoint = 201,
     LdnCommCmd_CreateNetwork = 202,
@@ -47,10 +47,12 @@ enum LdnCommCmd {
     LdnCommCmd_OpenStation = 300,
     LdnCommCmd_CloseStation = 301,
     LdnCommCmd_Connect = 302,
-    LdnCommCmd_ConnectPrivate = 303,                // nyi
+    LdnCommCmd_ConnectPrivate = 303,                    // nyi
     LdnCommCmd_Disconnect = 304,
     LdnCommCmd_Initialize = 400,
     LdnCommCmd_Finalize = 401,
+    LdnCommCmd_InitializeSystem2 = 402,                 // nyi
+    LdnCommCmd_SetOperationMode = 403,                  // nyi
 };
 
 class ICommunicationInterface : public IServiceObject {
@@ -92,6 +94,7 @@ class ICommunicationInterface : public IServiceObject {
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
         Result SetWirelessControllerRestriction();
+        Result SetOperationMode(u8 mode);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
             MakeServiceCommandMeta<LdnCommCmd_GetState, &ICommunicationInterface::GetState>(),
@@ -116,5 +119,7 @@ class ICommunicationInterface : public IServiceObject {
             MakeServiceCommandMeta<LdnCommCmd_SetStationAcceptPolicy, &ICommunicationInterface::SetStationAcceptPolicy>(),
             MakeServiceCommandMeta<LdnCommCmd_Initialize, &ICommunicationInterface::Initialize>(),
             MakeServiceCommandMeta<LdnCommCmd_Finalize, &ICommunicationInterface::Finalize>(),
+            MakeServiceCommandMeta<LdnCommCmd_InitializeSystem2, &ICommunicationInterface::Initialize>(),
+            MakeServiceCommandMeta<LdnCommCmd_SetOperationMode, &ICommunicationInterface::SetOperationMode>(),
         };
 };
