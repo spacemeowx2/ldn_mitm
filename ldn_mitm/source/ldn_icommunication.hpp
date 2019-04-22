@@ -52,7 +52,6 @@ enum LdnCommCmd {
     LdnCommCmd_Initialize = 400,
     LdnCommCmd_Finalize = 401,
     LdnCommCmd_InitializeSystem2 = 402,                 // nyi
-    LdnCommCmd_SetOperationMode = 403,                  // nyi
 };
 
 class ICommunicationInterface : public IServiceObject {
@@ -94,7 +93,6 @@ class ICommunicationInterface : public IServiceObject {
         Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
         Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
         Result SetWirelessControllerRestriction();
-        Result SetOperationMode(u8 mode);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
             MakeServiceCommandMeta<LdnCommCmd_GetState, &ICommunicationInterface::GetState>(),
@@ -120,6 +118,5 @@ class ICommunicationInterface : public IServiceObject {
             MakeServiceCommandMeta<LdnCommCmd_Initialize, &ICommunicationInterface::Initialize>(),
             MakeServiceCommandMeta<LdnCommCmd_Finalize, &ICommunicationInterface::Finalize>(),
             MakeServiceCommandMeta<LdnCommCmd_InitializeSystem2, &ICommunicationInterface::Initialize>(),
-            MakeServiceCommandMeta<LdnCommCmd_SetOperationMode, &ICommunicationInterface::SetOperationMode>(),
         };
 };

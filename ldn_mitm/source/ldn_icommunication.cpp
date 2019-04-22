@@ -74,10 +74,6 @@ Result ICommunicationInterface::SetWirelessControllerRestriction() {
     return 0;
 }
 
-Result ICommunicationInterface::SetOperationMode(u8 mode) {
-    return 0;
-}
-
 Result ICommunicationInterface::GetState(Out<u32> state) {
     state.SetValue(static_cast<u32>(this->lanDiscovery.getState()));
 
