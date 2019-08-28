@@ -14,11 +14,11 @@ class LdnMitMService : public IMitmServiceObject {
             CreateLdnMitmConfigService = 65000,
         };
     public:
-        LdnMitMService(std::shared_ptr<Service> s, u64 pid) : IMitmServiceObject(s, pid) {
+        LdnMitMService(std::shared_ptr<Service> s, u64 pid, sts::ncm::TitleId tid) : IMitmServiceObject(s, pid, tid) {
             /* ... */
         }
         
-        static bool ShouldMitm(u64 pid, u64 tid) {
+        static bool ShouldMitm(u64 pid, sts::ncm::TitleId tid) {
             LogFormat("should_mitm pid: %" PRIu64 " tid: %" PRIx64, pid, tid);
             return true;
         }

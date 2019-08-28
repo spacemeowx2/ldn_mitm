@@ -25,6 +25,10 @@ Result ICommunicationInterface::Initialize(u64 unk, PidDescriptor pid) {
     return rc;
 }
 
+Result ICommunicationInterface::InitializeSystem2(u64 unk, PidDescriptor pid) {
+    return this->Initialize(unk, pid);
+}
+
 Result ICommunicationInterface::Finalize() {
     if (this->state_event) {
         delete this->state_event;

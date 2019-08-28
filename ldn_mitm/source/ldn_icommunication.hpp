@@ -72,6 +72,7 @@ class ICommunicationInterface : public IServiceObject {
         void onEventFired();
     private:
         Result Initialize(u64 unk, PidDescriptor pid);
+        Result InitializeSystem2(u64 unk, PidDescriptor pid);
         Result Finalize();
         Result GetState(Out<u32> state);
         Result GetNetworkInfo(OutPointerWithServerSize<NetworkInfo, 1> buffer);
