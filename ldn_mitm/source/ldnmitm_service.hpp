@@ -7,12 +7,12 @@
 #include "ldnmitm_config.hpp"
 #include "debug.hpp"
 
-enum LdnSrvCmd {
-    LdnSrvCmd_CreateUserLocalCommunicationService = 0,
-    LdnSrvCmd_CreateLdnMitmConfigService = 65000,
-};
-
-class LdnMitMService : public IMitmServiceObject {      
+class LdnMitMService : public IMitmServiceObject {
+    private:
+        enum class CommandId {
+            CreateUserLocalCommunicationService = 0,
+            CreateLdnMitmConfigService = 65000,
+        };
     public:
         LdnMitMService(std::shared_ptr<Service> s, u64 pid) : IMitmServiceObject(s, pid) {
             /* ... */
@@ -30,7 +30,7 @@ class LdnMitMService : public IMitmServiceObject {
         Result CreateLdnMitmConfigService(Out<std::shared_ptr<LdnConfig>> out);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
-            MakeServiceCommandMeta<LdnSrvCmd_CreateUserLocalCommunicationService, &LdnMitMService::CreateUserLocalCommunicationService>(),
-            MakeServiceCommandMeta<LdnSrvCmd_CreateLdnMitmConfigService, &LdnMitMService::CreateLdnMitmConfigService>(),
+            MAKE_SERVICE_COMMAND_META(LdnMitMService, CreateUserLocalCommunicationService),
+            MAKE_SERVICE_COMMAND_META(LdnMitMService, CreateLdnMitmConfigService),
         };
 };

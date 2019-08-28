@@ -3,19 +3,20 @@
 #include <switch.h>
 #include <stratosphere.hpp>
 
-enum LdnConfigCmd {
-    LdnConfigCmd_SaveLogToFile = 65000,
-    LdnConfigCmd_GetVersion = 65001,
-    LdnConfigCmd_GetLogging = 65002,
-    LdnConfigCmd_SetLogging = 65003,
-    LdnConfigCmd_GetEnabled = 65004,
-    LdnConfigCmd_SetEnabled = 65005,
-};
 struct LdnMitmVersion {
     char raw[32];
 };
 
 class LdnConfig : public IServiceObject {
+    private:
+        enum class CommandId {
+            SaveLogToFile = 65000,
+            GetVersion = 65001,
+            GetLogging = 65002,
+            SetLogging = 65003,
+            GetEnabled = 65004,
+            SetEnabled = 65005,
+        };
     public:
         static bool getEnabled() {
             return LdnEnabled;
@@ -30,11 +31,11 @@ class LdnConfig : public IServiceObject {
         Result SetEnabled(u32 enabled);
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
-            MakeServiceCommandMeta<LdnConfigCmd_SaveLogToFile, &LdnConfig::SaveLogToFile>(),
-            MakeServiceCommandMeta<LdnConfigCmd_GetVersion, &LdnConfig::GetVersion>(),
-            MakeServiceCommandMeta<LdnConfigCmd_GetLogging, &LdnConfig::GetLogging>(),
-            MakeServiceCommandMeta<LdnConfigCmd_SetLogging, &LdnConfig::SetLogging>(),
-            MakeServiceCommandMeta<LdnConfigCmd_GetEnabled, &LdnConfig::GetEnabled>(),
-            MakeServiceCommandMeta<LdnConfigCmd_SetEnabled, &LdnConfig::SetEnabled>(),
+            MAKE_SERVICE_COMMAND_META(LdnConfig, SaveLogToFile),
+            MAKE_SERVICE_COMMAND_META(LdnConfig, GetVersion),
+            MAKE_SERVICE_COMMAND_META(LdnConfig, GetLogging),
+            MAKE_SERVICE_COMMAND_META(LdnConfig, SetLogging),
+            MAKE_SERVICE_COMMAND_META(LdnConfig, GetEnabled),
+            MAKE_SERVICE_COMMAND_META(LdnConfig, SetEnabled),
         };
 };

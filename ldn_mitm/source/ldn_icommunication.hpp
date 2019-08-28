@@ -22,39 +22,39 @@
 #include "ldn_types.hpp"
 #include "ipinfo.hpp"
 
-enum LdnCommCmd {
-    LdnCommCmd_GetState = 0,
-    LdnCommCmd_GetNetworkInfo = 1,
-    LdnCommCmd_GetIpv4Address = 2,
-    LdnCommCmd_GetDisconnectReason = 3,
-    LdnCommCmd_GetSecurityParameter = 4,
-    LdnCommCmd_GetNetworkConfig = 5,
-    LdnCommCmd_AttachStateChangeEvent = 100,
-    LdnCommCmd_GetNetworkInfoLatestUpdate = 101,
-    LdnCommCmd_Scan = 102,
-    LdnCommCmd_ScanPrivate = 103,                       // nyi
-    LdnCommCmd_SetWirelessControllerRestriction = 104,  // nyi
-    LdnCommCmd_OpenAccessPoint = 200,
-    LdnCommCmd_CloseAccessPoint = 201,
-    LdnCommCmd_CreateNetwork = 202,
-    LdnCommCmd_CreateNetworkPrivate = 203,              // nyi
-    LdnCommCmd_DestroyNetwork = 204,
-    LdnCommCmd_Reject = 205,                            // nyi
-    LdnCommCmd_SetAdvertiseData = 206,
-    LdnCommCmd_SetStationAcceptPolicy = 207,            // nyi
-    LdnCommCmd_AddAcceptFilterEntry = 208,              // nyi
-    LdnCommCmd_ClearAcceptFilter = 209,                 // nyi
-    LdnCommCmd_OpenStation = 300,
-    LdnCommCmd_CloseStation = 301,
-    LdnCommCmd_Connect = 302,
-    LdnCommCmd_ConnectPrivate = 303,                    // nyi
-    LdnCommCmd_Disconnect = 304,
-    LdnCommCmd_Initialize = 400,
-    LdnCommCmd_Finalize = 401,
-    LdnCommCmd_InitializeSystem2 = 402,                 // nyi
-};
-
 class ICommunicationInterface : public IServiceObject {
+    private:
+        enum class CommandId {
+            GetState = 0,
+            GetNetworkInfo = 1,
+            GetIpv4Address = 2,
+            GetDisconnectReason = 3,
+            GetSecurityParameter = 4,
+            GetNetworkConfig = 5,
+            AttachStateChangeEvent = 100,
+            GetNetworkInfoLatestUpdate = 101,
+            Scan = 102,
+            ScanPrivate = 103,                       // nyi
+            SetWirelessControllerRestriction = 104,  // nyi
+            OpenAccessPoint = 200,
+            CloseAccessPoint = 201,
+            CreateNetwork = 202,
+            CreateNetworkPrivate = 203,              // nyi
+            DestroyNetwork = 204,
+            Reject = 205,                            // nyi
+            SetAdvertiseData = 206,
+            SetStationAcceptPolicy = 207,            // nyi
+            AddAcceptFilterEntry = 208,              // nyi
+            ClearAcceptFilter = 209,                 // nyi
+            OpenStation = 300,
+            CloseStation = 301,
+            Connect = 302,
+            ConnectPrivate = 303,                    // nyi
+            Disconnect = 304,
+            Initialize = 400,
+            Finalize = 401,
+            InitializeSystem2 = 402,                 // nyi
+        };
     private:
         LANDiscovery lanDiscovery;
         IEvent *state_event;
@@ -95,28 +95,28 @@ class ICommunicationInterface : public IServiceObject {
         Result SetWirelessControllerRestriction();
     public:
         DEFINE_SERVICE_DISPATCH_TABLE {
-            MakeServiceCommandMeta<LdnCommCmd_GetState, &ICommunicationInterface::GetState>(),
-            MakeServiceCommandMeta<LdnCommCmd_GetNetworkInfo, &ICommunicationInterface::GetNetworkInfo>(),
-            MakeServiceCommandMeta<LdnCommCmd_GetIpv4Address, &ICommunicationInterface::GetIpv4Address>(),
-            MakeServiceCommandMeta<LdnCommCmd_GetDisconnectReason, &ICommunicationInterface::GetDisconnectReason>(),
-            MakeServiceCommandMeta<LdnCommCmd_GetSecurityParameter, &ICommunicationInterface::GetSecurityParameter>(),
-            MakeServiceCommandMeta<LdnCommCmd_GetNetworkConfig, &ICommunicationInterface::GetNetworkConfig>(),
-            MakeServiceCommandMeta<LdnCommCmd_AttachStateChangeEvent, &ICommunicationInterface::AttachStateChangeEvent>(),
-            MakeServiceCommandMeta<LdnCommCmd_GetNetworkInfoLatestUpdate, &ICommunicationInterface::GetNetworkInfoLatestUpdate>(),
-            MakeServiceCommandMeta<LdnCommCmd_Scan, &ICommunicationInterface::Scan>(),
-            MakeServiceCommandMeta<LdnCommCmd_SetWirelessControllerRestriction, &ICommunicationInterface::SetWirelessControllerRestriction>(),
-            MakeServiceCommandMeta<LdnCommCmd_OpenAccessPoint, &ICommunicationInterface::OpenAccessPoint>(),
-            MakeServiceCommandMeta<LdnCommCmd_CloseAccessPoint, &ICommunicationInterface::CloseAccessPoint>(),
-            MakeServiceCommandMeta<LdnCommCmd_CreateNetwork, &ICommunicationInterface::CreateNetwork>(),
-            MakeServiceCommandMeta<LdnCommCmd_DestroyNetwork, &ICommunicationInterface::DestroyNetwork>(),
-            MakeServiceCommandMeta<LdnCommCmd_OpenStation, &ICommunicationInterface::OpenStation>(),
-            MakeServiceCommandMeta<LdnCommCmd_CloseStation, &ICommunicationInterface::CloseStation>(),
-            MakeServiceCommandMeta<LdnCommCmd_Connect, &ICommunicationInterface::Connect>(),
-            MakeServiceCommandMeta<LdnCommCmd_Disconnect, &ICommunicationInterface::Disconnect>(),
-            MakeServiceCommandMeta<LdnCommCmd_SetAdvertiseData, &ICommunicationInterface::SetAdvertiseData>(),
-            MakeServiceCommandMeta<LdnCommCmd_SetStationAcceptPolicy, &ICommunicationInterface::SetStationAcceptPolicy>(),
-            MakeServiceCommandMeta<LdnCommCmd_Initialize, &ICommunicationInterface::Initialize>(),
-            MakeServiceCommandMeta<LdnCommCmd_Finalize, &ICommunicationInterface::Finalize>(),
-            MakeServiceCommandMeta<LdnCommCmd_InitializeSystem2, &ICommunicationInterface::Initialize>(),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetState),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetNetworkInfo),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetIpv4Address),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetDisconnectReason),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetSecurityParameter),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetNetworkConfig),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, AttachStateChangeEvent),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetNetworkInfoLatestUpdate),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Scan),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, SetWirelessControllerRestriction),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, OpenAccessPoint),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, CloseAccessPoint),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, CreateNetwork),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, DestroyNetwork),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, OpenStation),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, CloseStation),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Connect),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Disconnect),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, SetAdvertiseData),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, SetStationAcceptPolicy),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Initialize),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Finalize),
+            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, InitializeSystem2),
         };
 };
