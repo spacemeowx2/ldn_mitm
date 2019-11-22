@@ -471,7 +471,6 @@ void LANDiscovery::worker() {
         svcSleepThread(0);
     }
     LogFormat("Worker exit");
-    svcExitThread();
 }
 
 Result LANDiscovery::getNetworkInfo(NetworkInfo *pOutNetwork) {
