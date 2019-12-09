@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set env
+      run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+        fetch-depth: 1
+    - uses: spacemeowx2/devkitpro-action@v1
+      with:
+        cmd: make -j8
+    - name: Pack
+      run: |
+        cd ./out/sd
+        sudo zip -r ./ldn_mitm_${{ env.RELEASE_VERSION }}.zip atmosphere switch
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ env.RELEASE_VERSION }}
+        draft: false
+        prerelease: false
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./out/sd/ldn_mitm_${{ env.RELEASE_VERSION }}.zip
+        asset_name: ldn_mitm_${{ env.RELEASE_VERSION }}.zip
+        asset_content_type: application/zip

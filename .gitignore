@@ -61,8 +61,6 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-.**/
-
 # NOTE: make sure to make exceptions to this pattern when needed!
 *.bin
 

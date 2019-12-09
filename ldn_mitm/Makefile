@@ -112,9 +112,9 @@ all: $(BUILD)
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
-	@[ -d $(OUTDIR) ] || mkdir -p $(OUTDIR)/4200000000000010
+	@[ -d $(OUTDIR) ] || mkdir -p $(OUTDIR)
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-	@ cp $(OUTDIR)/ldn_mitm.nsp $(OUTDIR)/4200000000000010/exefs.nsp
+
 
 #---------------------------------------------------------------------------------
 clean:
