@@ -250,9 +250,9 @@ namespace ams::mitm::ldn {
 
     Result LANDiscovery::initTcp(bool listening) {
         int fd;
-        int rc;
+        Result rc;
         struct sockaddr_in addr;
-        std::scoped_lock<HosMutex> lock(this->pollMutex);
+        std::scoped_lock lock(this->pollMutex);
 
         if (this->tcp) {
             this->tcp->close();
@@ -286,9 +286,9 @@ namespace ams::mitm::ldn {
 
     Result LANDiscovery::initUdp(bool listening) {
         int fd;
-        int rc;
+        Result rc;
         struct sockaddr_in addr;
-        std::scoped_lock<HosMutex> lock(this->pollMutex);
+        std::scoped_lock lock(this->pollMutex);
 
         if (this->udp) {
             this->udp->close();
@@ -440,7 +440,7 @@ namespace ams::mitm::ldn {
             return 0;
         }
 
-        std::scoped_lock<HosMutex> lock(this->pollMutex);
+        std::scoped_lock lock(this->pollMutex);
         int nfds = 2 + StationCountMax;
         Pollable *fds[nfds];
         fds[0] = this->udp.get();
