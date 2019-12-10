@@ -1,5 +1,5 @@
 KIPS := ldn_mitm
-NROS := ldnmitm_config
+NROS := 
 
 SUBFOLDERS := Atmosphere-libs $(KIPS) $(NROS)
 
@@ -17,11 +17,13 @@ $(SUBFOLDERS):
 
 $(KIPS): Atmosphere-libs
 
+#---------------------------------------------------------------------------------
 PACK: $(SUBFOLDERS)
 	@[ -d $(NRO_DIR) ] || mkdir -p $(NRO_DIR)
 	@[ -d $(TITLE_DIR)/flags ] || mkdir -p $(TITLE_DIR)/flags
 	@ cp ldnmitm_config/ldnmitm_config.nro $(NRO_DIR)/ldnmitm_config.nro
-	@ cp ldn_mitm/out/ldn_mitm.nsp $(TITLE_DIR)/exefs.nsp
+	@ cp ldn_mitm/ldn_mitm.nsp $(TITLE_DIR)/exefs.nsp
 	@ touch $(TITLE_DIR)/flags/boot2.flag
+#---------------------------------------------------------------------------------
 
 .PHONY: $(TOPTARGETS) $(SUBFOLDERS)

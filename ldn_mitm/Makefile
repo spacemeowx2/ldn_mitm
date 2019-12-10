@@ -64,18 +64,8 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 export BUILD_EXEFS_SRC := $(TOPDIR)/$(EXEFS_SRC)
 
-ifeq ($(strip $(CONFIG_JSON)),)
-	jsons := $(wildcard *.json)
-	ifneq (,$(findstring $(TARGET).json,$(jsons)))
-		export APP_JSON := $(TOPDIR)/$(TARGET).json
-	else
-		ifneq (,$(findstring config.json,$(jsons)))
-			export APP_JSON := $(TOPDIR)/config.json
-		endif
-	endif
-else
-	export APP_JSON := $(TOPDIR)/$(CONFIG_JSON)
-endif
+export APP_JSON := $(TOPDIR)/res/app.json
+export KIP_JSON := $(TOPDIR)/res/kip.json
 
 .PHONY: $(BUILD) clean all
 
@@ -89,8 +79,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).kip $(TARGET).elf
-
+	@rm -fr $(BUILD) $(TARGET).kip $(TARGET).elf $(TARGET).nso $(TARGET).npdm $(TARGET).nsp
 
 #---------------------------------------------------------------------------------
 else
@@ -101,11 +90,15 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-all	:	$(OUTPUT).kip
+all: $(OUTPUT).kip $(OUTPUT).nsp
 
-$(OUTPUT).kip	:	$(OUTPUT).elf
+$(OUTPUT).nsp: $(OUTPUT).nso $(OUTPUT).npdm
 
-$(OUTPUT).elf	:	$(OFILES)
+$(OUTPUT).kip: $(OUTPUT).elf $(KIP_JSON)
+	@elf2kip $< $(KIP_JSON) $@
+	@echo built ... $(notdir $@)
+
+$(OUTPUT).elf: $(OFILES)
 
 #---------------------------------------------------------------------------------
 # you need a rule like this for each extension you use as binary data
