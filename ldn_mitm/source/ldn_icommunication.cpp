@@ -10,9 +10,9 @@ namespace ams::mitm::ldn {
     Result ICommunicationInterface::Initialize(u64 unk, sf::ClientProcessId pid) {
         LogFormat("ICommunicationInterface::Initialize unk: %" PRIu64 " pid: %" PRIu64, unk, pid);
 
-        R_ASSERT(this->state_event.InitializeAsInterProcessEvent());
+        R_TRY(this->state_event.InitializeAsInterProcessEvent());
 
-        R_ASSERT(lanDiscovery.initialize([&](){
+        R_TRY(lanDiscovery.initialize([&](){
             this->onEventFired();
         }));
 

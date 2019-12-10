@@ -80,7 +80,6 @@ void __appInit(void) {
         .sb_efficiency = 8,
     };
     sm::DoWithSession([&]() {
-        R_ASSERT(smInitialize());
         R_ASSERT(fsInitialize());
         R_ASSERT(ipinfoInit());
         R_ASSERT(socketInitialize(&socketInitConfig));
@@ -98,7 +97,6 @@ void __appExit(void) {
     socketExit();
     ipinfoExit();
     fsExit();
-    smExit();
 }
 
 struct LdnMitmManagerOptions {

@@ -27,12 +27,12 @@ Result ipinfoInit() {
 
     rc = _nifmGetIGS();
     if (R_FAILED(rc)) {
-        return rc;
+        return MAKERESULT(ModuleID, 6);
     }
 
     rc = _nifmGetIReq();
     if (R_FAILED(rc)) {
-        return rc;
+        return MAKERESULT(ModuleID, 7);
     }
 
     return rc;
@@ -104,6 +104,7 @@ Result nifmCancelRequest() {
 Result _nifmGetIGS() {
     u64 param = 0;
     return serviceDispatchIn(&g_nifmSrv, 5, param,
+        .in_send_pid = true,
         .out_num_objects = 1,
         .out_objects = &g_nifmIGS
     );
