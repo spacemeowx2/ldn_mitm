@@ -119,7 +119,7 @@ Result SaveLogToFile() {
     mutexLock(&MemoryLogMutex);
     FILE *file = fopen("sdmc:/ldn_mitm_memlog.log", "ab+");
     if (file) {
-        fprintf(file, "ldn_mitm memory log dump\nversion: " GITDESCVER "\ntimestamp: %" PRIu64 "\n\n", curtime);
+        fprintf(file, "ldn_mitm memory log dump\nversion: " ATMOSPHERE_GIT_REVISION "\ntimestamp: %" PRIu64 "\n\n", curtime);
         fwrite(MemoryLog, 1, MemoryLogPos, file);
         fclose(file);
         MemoryLogPos = 0;
