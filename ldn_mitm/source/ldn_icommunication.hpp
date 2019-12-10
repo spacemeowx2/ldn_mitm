@@ -22,102 +22,104 @@
 #include "ldn_types.hpp"
 #include "ipinfo.hpp"
 
-class ICommunicationInterface : public IServiceObject {
-    private:
-        enum class CommandId {
-            GetState = 0,
-            GetNetworkInfo = 1,
-            GetIpv4Address = 2,
-            GetDisconnectReason = 3,
-            GetSecurityParameter = 4,
-            GetNetworkConfig = 5,
-            AttachStateChangeEvent = 100,
-            GetNetworkInfoLatestUpdate = 101,
-            Scan = 102,
-            ScanPrivate = 103,                       // nyi
-            SetWirelessControllerRestriction = 104,  // nyi
-            OpenAccessPoint = 200,
-            CloseAccessPoint = 201,
-            CreateNetwork = 202,
-            CreateNetworkPrivate = 203,              // nyi
-            DestroyNetwork = 204,
-            Reject = 205,                            // nyi
-            SetAdvertiseData = 206,
-            SetStationAcceptPolicy = 207,            // nyi
-            AddAcceptFilterEntry = 208,              // nyi
-            ClearAcceptFilter = 209,                 // nyi
-            OpenStation = 300,
-            CloseStation = 301,
-            Connect = 302,
-            ConnectPrivate = 303,                    // nyi
-            Disconnect = 304,
-            Initialize = 400,
-            Finalize = 401,
-            InitializeSystem2 = 402,                 // nyi
-        };
-    private:
-        LANDiscovery lanDiscovery;
-        IEvent *state_event;
-    public:
-        ICommunicationInterface(): state_event(nullptr) {
-            LogFormat("ICommunicationInterface");
-            /* ... */
-        };
-        
-        ~ICommunicationInterface() {
-            LogFormat("~ICommunicationInterface");
-            /* ... */
-        };
-    private:
-        void onEventFired();
-    private:
-        Result Initialize(u64 unk, PidDescriptor pid);
-        Result InitializeSystem2(u64 unk, PidDescriptor pid);
-        Result Finalize();
-        Result GetState(Out<u32> state);
-        Result GetNetworkInfo(OutPointerWithServerSize<NetworkInfo, 1> buffer);
-        Result GetIpv4Address(Out<u32> address, Out<u32> mask);
-        Result GetDisconnectReason(Out<u32> reason);
-        Result GetSecurityParameter(Out<SecurityParameter> out);
-        Result GetNetworkConfig(Out<NetworkConfig> out);
-        Result OpenAccessPoint();
-        Result CloseAccessPoint();
-        Result DestroyNetwork();
-        Result CreateNetwork(CreateNetworkConfig data);
-        Result OpenStation();
-        Result CloseStation();
-        Result Disconnect();
-        Result SetAdvertiseData(InSmartBuffer<u8> data);
-        Result SetStationAcceptPolicy(u8 policy);
-        Result AttachStateChangeEvent(Out<CopiedHandle> handle);
-        Result Scan(Out<u32> count, OutSmartBuffer<NetworkInfo> buffer, u16 channel, ScanFilter filter);
-        Result Connect(ConnectNetworkData dat, InPointer<NetworkInfo> data);
-        Result GetNetworkInfoLatestUpdate(OutPointerWithServerSize<NetworkInfo, 1> buffer, OutPointerWithClientSize<NodeLatestUpdate> pUpdates);
-        Result SetWirelessControllerRestriction();
-    public:
-        DEFINE_SERVICE_DISPATCH_TABLE {
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetState),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetNetworkInfo),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetIpv4Address),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetDisconnectReason),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetSecurityParameter),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetNetworkConfig),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, AttachStateChangeEvent),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, GetNetworkInfoLatestUpdate),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Scan),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, SetWirelessControllerRestriction),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, OpenAccessPoint),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, CloseAccessPoint),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, CreateNetwork),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, DestroyNetwork),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, OpenStation),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, CloseStation),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Connect),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Disconnect),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, SetAdvertiseData),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, SetStationAcceptPolicy),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Initialize),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, Finalize),
-            MAKE_SERVICE_COMMAND_META(ICommunicationInterface, InitializeSystem2),
-        };
-};
+namespace ams::mitm::ldn {
+    class ICommunicationInterface : public sf::IServiceObject {
+        private:
+            enum class CommandId {
+                GetState = 0,
+                GetNetworkInfo = 1,
+                GetIpv4Address = 2,
+                GetDisconnectReason = 3,
+                GetSecurityParameter = 4,
+                GetNetworkConfig = 5,
+                AttachStateChangeEvent = 100,
+                GetNetworkInfoLatestUpdate = 101,
+                Scan = 102,
+                ScanPrivate = 103,                       // nyi
+                SetWirelessControllerRestriction = 104,  // nyi
+                OpenAccessPoint = 200,
+                CloseAccessPoint = 201,
+                CreateNetwork = 202,
+                CreateNetworkPrivate = 203,              // nyi
+                DestroyNetwork = 204,
+                Reject = 205,                            // nyi
+                SetAdvertiseData = 206,
+                SetStationAcceptPolicy = 207,            // nyi
+                AddAcceptFilterEntry = 208,              // nyi
+                ClearAcceptFilter = 209,                 // nyi
+                OpenStation = 300,
+                CloseStation = 301,
+                Connect = 302,
+                ConnectPrivate = 303,                    // nyi
+                Disconnect = 304,
+                Initialize = 400,
+                Finalize = 401,
+                InitializeSystem2 = 402,                 // nyi
+            };
+        private:
+            LANDiscovery lanDiscovery;
+            os::SystemEvent state_event;
+        public:
+            ICommunicationInterface() {
+                LogFormat("ICommunicationInterface");
+                /* ... */
+            };
+            
+            ~ICommunicationInterface() {
+                LogFormat("~ICommunicationInterface");
+                /* ... */
+            };
+        private:
+            void onEventFired();
+        private:
+            Result Initialize(u64 unk, sf::ClientProcessId pid);
+            Result InitializeSystem2(u64 unk, sf::ClientProcessId pid);
+            Result Finalize();
+            Result GetState(sf::Out<u32> state);
+            Result GetNetworkInfo(sf::Out<NetworkInfo> buffer);
+            Result GetIpv4Address(sf::Out<u32> address, sf::Out<u32> mask);
+            Result GetDisconnectReason(sf::Out<u32> reason);
+            Result GetSecurityParameter(sf::Out<SecurityParameter> out);
+            Result GetNetworkConfig(sf::Out<NetworkConfig> out);
+            Result OpenAccessPoint();
+            Result CloseAccessPoint();
+            Result DestroyNetwork();
+            Result CreateNetwork(CreateNetworkConfig data);
+            Result OpenStation();
+            Result CloseStation();
+            Result Disconnect();
+            Result SetAdvertiseData(sf::InAutoSelectBuffer data);
+            Result SetStationAcceptPolicy(u8 policy);
+            Result AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle);
+            Result Scan(sf::Out<u32> count, sf::OutArray<NetworkInfo> buffer, u16 channel, ScanFilter filter);
+            Result Connect(ConnectNetworkData dat, NetworkInfo &data);
+            Result GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates);
+            Result SetWirelessControllerRestriction();
+        public:
+            DEFINE_SERVICE_DISPATCH_TABLE {
+                MAKE_SERVICE_COMMAND_META(GetState),
+                MAKE_SERVICE_COMMAND_META(GetNetworkInfo),
+                MAKE_SERVICE_COMMAND_META(GetIpv4Address),
+                MAKE_SERVICE_COMMAND_META(GetDisconnectReason),
+                MAKE_SERVICE_COMMAND_META(GetSecurityParameter),
+                MAKE_SERVICE_COMMAND_META(GetNetworkConfig),
+                MAKE_SERVICE_COMMAND_META(AttachStateChangeEvent),
+                MAKE_SERVICE_COMMAND_META(GetNetworkInfoLatestUpdate),
+                MAKE_SERVICE_COMMAND_META(Scan),
+                MAKE_SERVICE_COMMAND_META(SetWirelessControllerRestriction),
+                MAKE_SERVICE_COMMAND_META(OpenAccessPoint),
+                MAKE_SERVICE_COMMAND_META(CloseAccessPoint),
+                MAKE_SERVICE_COMMAND_META(CreateNetwork),
+                MAKE_SERVICE_COMMAND_META(DestroyNetwork),
+                MAKE_SERVICE_COMMAND_META(OpenStation),
+                MAKE_SERVICE_COMMAND_META(CloseStation),
+                MAKE_SERVICE_COMMAND_META(Connect),
+                MAKE_SERVICE_COMMAND_META(Disconnect),
+                MAKE_SERVICE_COMMAND_META(SetAdvertiseData),
+                MAKE_SERVICE_COMMAND_META(SetStationAcceptPolicy),
+                MAKE_SERVICE_COMMAND_META(Initialize),
+                MAKE_SERVICE_COMMAND_META(Finalize),
+                MAKE_SERVICE_COMMAND_META(InitializeSystem2),
+            };
+    };
+}
