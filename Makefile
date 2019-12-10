@@ -1,5 +1,5 @@
 KIPS := ldn_mitm
-NROS := 
+NROS := ldnmitm_config
 
 SUBFOLDERS := Atmosphere-libs $(KIPS) $(NROS)
 

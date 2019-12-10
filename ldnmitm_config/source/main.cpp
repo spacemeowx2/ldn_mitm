@@ -3,7 +3,6 @@
 #include <switch.h>
 #include <string.h>
 #include "ldn.h"
-#include "test.h"
 
 #define MODULEID 0x233
 static Service g_ldnSrv;

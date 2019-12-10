@@ -1,5 +1,4 @@
 #include "ldn.h"
-#include "debug.h"
 #include <string.h>
 
 void NetworkInfo2NetworkConfig(NetworkInfo* info, NetworkConfig* out) {
@@ -14,203 +13,6 @@ void NetworkInfo2SecurityParameter(NetworkInfo* info, SecurityParameter* out) {
     memcpy(out->unkRandom, info->ldn.unkRandom, 16);
 }
 
-Result ldnOpenStation(UserLocalCommunicationService* s) {
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 300;
-
-    Result rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
-}
-
-Result ldnGetState(UserLocalCommunicationService* s, u32* state) {
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 0;
-
-    Result rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            u32 state;
-        } *resp;
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-        *state = resp->state;
-    }
-
-    return rc;
-}
-
-Result ldnInitialize(UserLocalCommunicationService* s) {
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    ipcSendPid(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u64 unk;
-    } *raw;
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 400;
-    raw->unk = 0;
-
-    Result rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
-}
-
-Result ldnScan(UserLocalCommunicationService* s, u16 channel, void* unk2, u16* unkOut, void* outBuf, size_t outLen) {
-    IpcCommand c;
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u16 channel;
-        u8 unk2[0x60];
-    } *raw;
-    ipcAddRecvBuffer(&c, outBuf, outLen, BufferType_Normal);
-    ipcAddRecvStatic(&c, 0, 0, BufferType_Normal);
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 102;
-    raw->channel = channel;
-    memcpy(raw->unk2, unk2, 0x60);
-
-    printHex(armGetTls(), 0x100);
-    Result rc = serviceIpcDispatch(&s->s);
-    printHex(armGetTls(), 0x100);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            u16 unk;
-        } *resp;
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-        printHex(resp, sizeof(*resp));
-
-        rc = resp->result;
-        *unkOut = resp->unk;
-    }
-
-    return rc;
-}
-
-Result ldnGetNetworkInfo(UserLocalCommunicationService* s, void* out) {
-    IpcCommand c;
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-    ipcAddRecvStatic(&c, out, 0x480, 0);
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-    // LogHex(armGetTls(), 0x100);
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 1;
-    Result rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
-}
-
-Result ldnCreateUserLocalCommunicationService(Service* s, UserLocalCommunicationService* out) {
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 0;
-
-    Result rc = serviceIpcDispatch(s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-        
-        serviceIpcParse(s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-
-        if (R_SUCCEEDED(rc)) {
-            serviceCreateSubservice(&out->s, s, &r, 0);
-        }
-    }
-
-    return rc;
-}
-
 Result ldnMitmGetConfig(LdnMitmConfigService *out) {
     Handle handle;
     Result rc = svcConnectToNamedPort(&handle, "ldnmitm");
@@ -221,259 +23,37 @@ Result ldnMitmGetConfig(LdnMitmConfigService *out) {
 }
 
 Result ldnMitmGetConfigFromService(Service* s, LdnMitmConfigService *out) {
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65000;
-
-    Result rc = serviceIpcDispatch(s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-        
-        serviceIpcParse(s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-
-        if (R_SUCCEEDED(rc)) {
-            serviceCreateSubservice(&out->s, s, &r, 0);
-        }
-    }
-
-    return rc;
+    return serviceDispatch(s, 65000,
+        .out_num_objects = 1,
+        .out_objects = &out->s
+    );
 }
 
 Result ldnMitmGetLogging(LdnMitmConfigService *s, u32 *enabled) {
-    Result rc = 0;
-
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65002;
-
-    rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            u32 enabled;
-        } *resp;
-
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-        if (R_SUCCEEDED(rc)) {
-            *enabled = resp->enabled;
-        }
-    }
-
-    return rc;
+    return serviceDispatchOut(&s->s, 65002, *enabled);
 }
 
 Result ldnMitmSetLogging(LdnMitmConfigService *s, u32 enabled) {
-    Result rc = 0;
-
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u32 enabled;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65003;
-    raw->enabled = enabled;
-
-    rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            u32 enabled;
-        } *resp;
-
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    return serviceDispatchIn(&s->s, 65003, enabled);
 }
 
 Result ldnMitmGetEnabled(LdnMitmConfigService *s, u32 *enabled) {
-    Result rc = 0;
-
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65004;
-
-    rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            u32 enabled;
-        } *resp;
-
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-        if (R_SUCCEEDED(rc)) {
-            *enabled = resp->enabled;
-        }
-    }
-
-    return rc;
+    return serviceDispatchOut(&s->s, 65004, *enabled);
 }
 
 Result ldnMitmSetEnabled(LdnMitmConfigService *s, u32 enabled) {
-    Result rc = 0;
-
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u32 enabled;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65005;
-    raw->enabled = enabled;
-
-    rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            u32 enabled;
-        } *resp;
-
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    return serviceDispatchIn(&s->s, 65005, enabled);
 }
 
 Result ldnMitmGetVersion(LdnMitmConfigService *s, char *version) {
-    Result rc = 0;
-
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65001;
-
-    rc = serviceIpcDispatch(&s->s);
-
+    char version_s[32];
+    Result rc = serviceDispatchOut(&s->s, 65001, version_s);
     if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-            char version[32];
-        } *resp;
-
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-        if (R_SUCCEEDED(rc)) {
-            strcpy(version, resp->version);
-        }
+        strcpy(version, version_s);
     }
-
     return rc;
 }
 
 Result ldnMitmSaveLogToFile(LdnMitmConfigService *s) {
-    Result rc = 0;
-
-    IpcCommand c;
-    ipcInitialize(&c);
-
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = serviceIpcPrepareHeader(&s->s, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 65000;
-
-    rc = serviceIpcDispatch(&s->s);
-
-    if (R_SUCCEEDED(rc)) {
-        IpcParsedCommand r;
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-        
-        serviceIpcParse(&s->s, &r, sizeof(*resp));
-        resp = r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    return serviceDispatch(&s->s, 65000);
 }
