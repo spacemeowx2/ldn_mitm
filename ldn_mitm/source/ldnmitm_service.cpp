@@ -20,19 +20,21 @@
 #include "ldnmitm_service.hpp"
 #include "ldn_icommunication.hpp"
 
-Result LdnMitMService::CreateUserLocalCommunicationService(Out<std::shared_ptr<ICommunicationInterface>> out) {
-    LogFormat("CreateUserLocalCommunicationService: enabled %d", static_cast<u32>(LdnConfig::getEnabled()));
+namespace ams::mitm::ldn {
+    Result LdnMitMService::CreateUserLocalCommunicationService(Out<std::shared_ptr<ICommunicationInterface>> out) {
+        LogFormat("CreateUserLocalCommunicationService: enabled %d", static_cast<u32>(LdnConfig::getEnabled()));
 
-    if (LdnConfig::getEnabled()) {
-        auto comm = std::make_shared<ICommunicationInterface>();
-        out.SetValue(std::move(comm));
+        if (LdnConfig::getEnabled()) {
+            auto comm = std::make_shared<ICommunicationInterface>();
+            out.SetValue(std::move(comm));
+            return 0;
+        }
+
+        return ResultAtmosphereMitmShouldForwardToSession;
+    }
+    Result LdnMitMService::CreateLdnMitmConfigService(Out<std::shared_ptr<LdnConfig>> out) {
+        out.SetValue(std::move(std::make_shared<LdnConfig>()));
+
         return 0;
     }
-
-    return ResultAtmosphereMitmShouldForwardToSession;
-}
-Result LdnMitMService::CreateLdnMitmConfigService(Out<std::shared_ptr<LdnConfig>> out) {
-    out.SetValue(std::move(std::make_shared<LdnConfig>()));
-
-    return 0;
 }

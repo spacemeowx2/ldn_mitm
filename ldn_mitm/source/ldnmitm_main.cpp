@@ -38,6 +38,14 @@ extern "C" {
     void __appExit(void);
 }
 
+namespace ams {
+    ncm::ProgramId CurrentProgramId = { 0x4200000000000010ul };
+
+    namespace result {
+        bool CallFatalOnResultAssertion = false;
+    }
+}
+using namespace ams;
 
 void __libnx_initheap(void) {
     void*  addr = nx_inner_heap;
@@ -52,30 +60,10 @@ void __libnx_initheap(void) {
 }
 
 void __appInit(void) {
-    Result rc;
     svcSleepThread(10000000000L);
 
-    SetFirmwareVersionForLibnx();
+    hos::SetVersionForLibnx();
 
-    rc = smInitialize();
-    if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
-    }
-    
-    rc = fsInitialize();
-    if (R_FAILED(rc)) {
-        fatalSimple(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
-    }
-
-    rc = fsdevMountSdmc();
-    if (R_FAILED(rc)) {
-        fatalSimple(rc);
-    }
-
-    rc = ipinfoInit();
-    if (R_FAILED(rc)) {
-        fatalSimple(rc);
-    }
 
     #define SOCK_BUFFERSIZE 0x1000
     const SocketInitConfig socketInitConfig = {
@@ -91,60 +79,46 @@ void __appInit(void) {
 
         .sb_efficiency = 8,
     };
-    rc = socketInitialize(&socketInitConfig);
-    if (R_FAILED(rc)) {
-        fatalSimple(rc);
-    }
+    sm::DoWithSession([&]() {
+        R_ASSERT(smInitialize());
+        R_ASSERT(fsInitialize());
+        R_ASSERT(ipinfoInit());
+        R_ASSERT(socketInitialize(&socketInitConfig));
+    });
+
+    R_ASSERT(fsdevMountSdmc());
+
+    ams::CheckApiVersion();
 
     LogFormat("__appInit done");
 }
 
 void __appExit(void) {
-    /* Cleanup services. */
+    fsdevUnmountAll();
     socketExit();
     ipinfoExit();
-    fsdevUnmountAll();
     fsExit();
     smExit();
 }
 
 struct LdnMitmManagerOptions {
-    static const size_t PointerBufferSize = 0x1000;
-    static const size_t MaxDomains = 0x10;
-    static const size_t MaxDomainObjects = 0x100;
-};
-class LdnServiceSession : public ServiceSession {
-    public:
-        LdnServiceSession(Handle s_h, size_t pbs, ServiceObjectHolder &&h)  : ServiceSession(s_h, pbs, std::move(h)) { }
-
-        virtual void PreProcessRequest(IpcResponseContext *ctx) {
-            LogFormat("Request cmd_id %" PRIu64 " type %d", ctx->cmd_id, ctx->cmd_type);
-        }
-        virtual void PostProcessResponse(IpcResponseContext *ctx) {
-            LogFormat("Reply rc %d", ctx->rc);
-        }
-};
-template<typename ManagerOptions = LdnMitmManagerOptions>
-class LdnMitmManager : public WaitableManager<ManagerOptions> {
-    public:
-        LdnMitmManager(u32 n, u32 ss = 0x8000) : WaitableManager<ManagerOptions>(n, ss) {}
-        virtual void AddSession(Handle server_h, ServiceObjectHolder &&service) override {
-            this->AddWaitable(new LdnServiceSession(server_h, ManagerOptions::PointerBufferSize, std::move(service)));
-        }
+    static constexpr size_t PointerBufferSize = 0x1000;
+    static constexpr size_t MaxDomains = 0x10;
+    static constexpr size_t MaxDomainObjects = 0x100;
 };
 
 int main(int argc, char **argv)
 {
     LogFormat("main");
 
-    auto server_manager = new LdnMitmManager(2);
+    constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
+    sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
 
-    /* Create ldn:u mitm. */
-    AddMitmServerToManager<LdnMitMService>(server_manager, "ldn:u", 3);
-    server_manager->AddWaitable(new ManagedPortServer<LdnConfig>("ldnmitm", 3));
+    R_ASSERT(server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(MitmServiceName));
 
-    /* Loop forever, servicing our services. */
-    server_manager->Process();
+    server_manager.RegisterServer<ams::mitm::ldn::LdnConfig>(sm::ServiceName::Encode("ldnmitm"), 3);
+
+    server_manager.LoopProcess();
 
     return 0;
 }
