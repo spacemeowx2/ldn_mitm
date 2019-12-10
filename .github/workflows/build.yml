@@ -21,7 +21,7 @@ jobs:
       with:
         path: libstratosphere/release
         key: libstratosphere-release
-    - uses: spacemeowx2/devkitpro-action@v1
+    - uses: spacemeowx2/devkitpro-action@latest
       with:
         cmd: make -j8
 
