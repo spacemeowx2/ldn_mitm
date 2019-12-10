@@ -52,46 +52,17 @@ Result ipinfoGetIpConfig(u32* address) {
 }
 
 Result ipinfoGetIpConfig(u32* address, u32* netmask) {
-    Result rc;
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
     struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIGS, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 15; // GetCurrentIpConfigInfo
-
-    rc = serviceIpcDispatch(&g_nifmIGS);
-    if (R_FAILED(rc)) {
-        return rc;
-    }
-    struct {
-        u64 magic;
-        u64 result;
         u8 _unk;
         u32 address;
         u32 netmask;
         u32 gateway;
-    } __attribute__((packed)) *resp;
+    } __attribute__((packed)) resp;
+    R_TRY(serviceDispatchOut(&g_nifmIGS, 15, resp));
+    *address = ntohl(resp.address);
+    *netmask = ntohl(resp.netmask);
 
-    serviceIpcParse(&g_nifmIGS, &r, sizeof(*resp));
-    resp = (decltype(resp))r.Raw;
-
-    rc = resp->result;
-    if (R_FAILED(rc)) {
-        return rc;
-    }
-    *address = ntohl(resp->address);
-    *netmask = ntohl(resp->netmask);
-    // ret = resp->address | ~resp->netmask;
-
-    return rc;
+    return 0;
 }
 
 Result nifmSetLocalNetworkMode(bool isLocalNetworkMode) {
@@ -127,255 +98,44 @@ Result nifmSubmitRequestAndWait() {
 }
 
 Result nifmCancelRequest() {
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 3;
-
-    Result rc = serviceIpcDispatch(&g_nifmIReq);
-
-    if (R_SUCCEEDED(rc)) {
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-
-        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
-        resp = (decltype(resp))r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    return serviceDispatch(&g_nifmIReq, 3);
 }
 
 Result _nifmGetIGS() {
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    ipcSendPid(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        u64 param;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmSrv, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 5;
-    raw->param = 0;
-
-    Result rc = serviceIpcDispatch(&g_nifmSrv);
-
-    if (R_FAILED(rc)) {
-        return MAKERESULT(ModuleID, 6);
-    }
-    struct {
-        u64 magic;
-        u64 result;
-    } *resp;
-
-    serviceIpcParse(&g_nifmSrv, &r, sizeof(*resp));
-    resp = (decltype(resp))r.Raw;
-
-    rc = resp->result;
-
-    if (R_FAILED(rc)) {
-        return MAKERESULT(ModuleID, 7);
-    }
-
-    serviceCreateSubservice(&g_nifmIGS, &g_nifmSrv, &r, 0);
-
-    return 0;
+    u64 param = 0;
+    return serviceDispatchIn(&g_nifmSrv, 5, param,
+        .out_num_objects = 1,
+        .out_objects = &g_nifmIGS
+    );
 }
 
 Result _nifmGetIReq() {
-    IpcCommand c;
-    IpcParsedCommand r;
+    s32 param = 2;
+    return serviceDispatchIn(&g_nifmIGS, 4, param,
+        .out_num_objects = 1,
+        .out_objects = &g_nifmIReq
+    );
+}
 
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        s32 param;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIGS, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 4;
-    raw->param = 2;
-
-    Result rc = serviceIpcDispatch(&g_nifmIGS);
-
-    if (R_FAILED(rc)) {
-        return MAKERESULT(ModuleID, 8);
+Result _nifmGetRequestState(s32 *state) {
+    R_TRY(serviceDispatchOut(&g_nifmIReq, 0, *state));
+    LogFormat("_nifmGetRequestState %d", *state);
+    if (*state == 1) {
+        LogFormat("result %d", _nifmGetResult());
     }
-    struct {
-        u64 magic;
-        u64 result;
-    } *resp;
-
-    serviceIpcParse(&g_nifmIGS, &r, sizeof(*resp));
-    resp = (decltype(resp))r.Raw;
-
-    rc = resp->result;
-
-    if (R_FAILED(rc)) {
-        return MAKERESULT(ModuleID, 9);
-    }
-
-    serviceCreateSubservice(&g_nifmIReq, &g_nifmIGS, &r, 0);
 
     return 0;
 }
 
-Result _nifmGetRequestState(s32 *state) {
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 0;
-
-    Result rc = serviceIpcDispatch(&g_nifmIReq);
-
-    if (R_SUCCEEDED(rc)) {
-        struct {
-            u64 magic;
-            u64 result;
-            s32 state;
-        } *resp;
-
-        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
-        resp = (decltype(resp))r.Raw;
-
-        rc = resp->result;
-
-        if (R_SUCCEEDED(rc)) {
-            *state = resp->state;
-            LogFormat("_nifmGetRequestState %d", *state);
-            if (*state == 1) {
-                LogFormat("result %d", _nifmGetResult());
-            }
-        }
-    }
-
-    return rc;
-}
-
 Result _nifmSetConnectionConfirmationOption(s8 option) {
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-        s32 option;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 11;
-    raw->option = option;
-
-    Result rc = serviceIpcDispatch(&g_nifmIReq);
-
-    if (R_SUCCEEDED(rc)) {
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-
-        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
-        resp = (decltype(resp))r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    s32 option_32 = option;
+    return serviceDispatchIn(&g_nifmIReq, 11, option_32);
 }
 
 Result _nifmSubmitRequest() {
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 4;
-
-    Result rc = serviceIpcDispatch(&g_nifmIReq);
-
-    if (R_SUCCEEDED(rc)) {
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-
-        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
-        resp = (decltype(resp))r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    return serviceDispatch(&g_nifmIReq, 4);
 }
 
 Result _nifmGetResult() {
-    IpcCommand c;
-    IpcParsedCommand r;
-
-    ipcInitialize(&c);
-    struct {
-        u64 magic;
-        u64 cmd_id;
-    } *raw;
-
-    raw = (decltype(raw))serviceIpcPrepareHeader(&g_nifmIReq, &c, sizeof(*raw));
-
-    raw->magic = SFCI_MAGIC;
-    raw->cmd_id = 1;
-
-    Result rc = serviceIpcDispatch(&g_nifmIReq);
-
-    if (R_SUCCEEDED(rc)) {
-        struct {
-            u64 magic;
-            u64 result;
-        } *resp;
-
-        serviceIpcParse(&g_nifmIReq, &r, sizeof(*resp));
-        resp = (decltype(resp))r.Raw;
-
-        rc = resp->result;
-    }
-
-    return rc;
+    return serviceDispatch(&g_nifmIReq, 1);
 }

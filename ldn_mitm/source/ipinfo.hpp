@@ -1,5 +1,6 @@
 #pragma once
 #include <switch.h>
+#include <stratosphere.hpp>
 
 Result ipinfoInit();
 void ipinfoExit();
