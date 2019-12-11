@@ -11,16 +11,6 @@ jobs:
       with:
         submodules: true
         fetch-depth: 1
-    - name: Cache libstratosphere debug
-      uses: actions/cache@v1
-      with:
-        path: libstratosphere/debug
-        key: libstratosphere-debug
-    - name: Cache libstratosphere release
-      uses: actions/cache@v1
-      with:
-        path: libstratosphere/release
-        key: libstratosphere-release
     - uses: spacemeowx2/devkitpro-action@latest
       with:
         cmd: make -j8
