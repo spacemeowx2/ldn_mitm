@@ -134,7 +134,7 @@ namespace ams::mitm::ldn {
         return ResultSuccess();
     }
 
-    Result ICommunicationInterface::Scan(sf::Out<u32> outCount, sf::OutArray<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
+    Result ICommunicationInterface::Scan(sf::Out<u32> outCount, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
         Result rc = 0;
         u16 count = buffer.GetSize();
 

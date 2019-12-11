@@ -91,7 +91,7 @@ namespace ams::mitm::ldn {
             Result SetAdvertiseData(sf::InAutoSelectBuffer data);
             Result SetStationAcceptPolicy(u8 policy);
             Result AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle);
-            Result Scan(sf::Out<u32> count, sf::OutArray<NetworkInfo> buffer, u16 channel, ScanFilter filter);
+            Result Scan(sf::Out<u32> count, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter);
             Result Connect(ConnectNetworkData dat, NetworkInfo &data);
             Result GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates);
             Result SetWirelessControllerRestriction();
