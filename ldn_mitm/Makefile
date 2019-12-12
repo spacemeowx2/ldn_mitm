@@ -4,6 +4,20 @@
 include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../Atmosphere-libs/config/templates/stratosphere.mk
 
 #---------------------------------------------------------------------------------
+# version control constants
+#---------------------------------------------------------------------------------
+TARGET_VERSION := $(shell git describe --tags --dirty)
+
+#---------------------------------------------------------------------------------
+# options for code generation
+#---------------------------------------------------------------------------------
+VERSION_DEFINES	:= -DGITDESCVER="\"${TARGET_VERSION}\""
+
+
+CFLAGS		+= $(VERSION_DEFINES)
+CXXFLAGS	+= $(VERSION_DEFINES)
+
+#---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
 # rules for different file extensions
 #---------------------------------------------------------------------------------
