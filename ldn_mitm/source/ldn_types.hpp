@@ -101,7 +101,7 @@ namespace ams::mitm::ldn {
         SessionId sessionId;    // 16bytes
     };                // 32bytes
 
-    struct NetworkInfo : sf::LargeData, sf::PrefersAutoSelectTransferMode {
+    struct NetworkInfo : sf::LargeData {
         NetworkId networkId;
         CommonNetworkInfo common;
         LdnNetworkInfo ldn;
