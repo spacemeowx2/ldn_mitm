@@ -15,7 +15,6 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
-        fetch-depth: 1
     - uses: spacemeowx2/devkitpro-action@latest
       with:
         cmd: make -j8
