@@ -24,8 +24,9 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationInterface::Finalize() {
+        Result rc = lanDiscovery.finalize();
         this->state_event.Finalize();
-        return lanDiscovery.finalize();
+        return rc;
     }
 
     Result ICommunicationInterface::OpenAccessPoint() {
