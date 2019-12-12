@@ -58,16 +58,19 @@ namespace ams::mitm::ldn {
             };
         private:
             LANDiscovery lanDiscovery;
-            os::SystemEvent state_event;
+            os::SystemEvent *state_event;
         public:
-            ICommunicationInterface() {
+            ICommunicationInterface() : state_event(nullptr) {
                 LogFormat("ICommunicationInterface");
                 /* ... */
             };
             
             ~ICommunicationInterface() {
                 LogFormat("~ICommunicationInterface");
-                /* ... */
+                if (this->state_event != nullptr) {
+                    delete this->state_event;
+                    this->state_event = nullptr;
+                }
             };
         private:
             void onEventFired();

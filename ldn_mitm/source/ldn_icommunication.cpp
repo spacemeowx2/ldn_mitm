@@ -10,7 +10,9 @@ namespace ams::mitm::ldn {
     Result ICommunicationInterface::Initialize(u64 unk, sf::ClientProcessId pid) {
         LogFormat("ICommunicationInterface::Initialize unk: %" PRIu64 " pid: %" PRIu64, unk, pid);
 
-        R_TRY(this->state_event.InitializeAsInterProcessEvent());
+        if (this->state_event == nullptr) {
+            this->state_event = new os::SystemEvent(true);
+        }
 
         R_TRY(lanDiscovery.initialize([&](){
             this->onEventFired();
@@ -25,7 +27,11 @@ namespace ams::mitm::ldn {
 
     Result ICommunicationInterface::Finalize() {
         Result rc = lanDiscovery.finalize();
-        this->state_event.Finalize();
+        if (this->state_event) {
+            this->state_event->Finalize();
+            delete this->state_event;
+            this->state_event = nullptr;
+        }
         return rc;
     }
 
@@ -131,7 +137,7 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationInterface::AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle) {
-        handle.SetValue(this->state_event.GetReadableHandle());
+        handle.SetValue(this->state_event->GetReadableHandle());
         return ResultSuccess();
     }
 
@@ -156,7 +162,9 @@ namespace ams::mitm::ldn {
     }
 
     void ICommunicationInterface::onEventFired() {
-        LogFormat("onEventFired signal_event");
-        this->state_event.Signal();
+        if (this->state_event) {
+            LogFormat("onEventFired signal_event");
+            this->state_event->Signal();
+        }
     }
 }
