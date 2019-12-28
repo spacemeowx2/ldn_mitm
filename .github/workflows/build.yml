@@ -21,8 +21,8 @@ jobs:
         path: out/sd
 
     - name: Upload elf file
-    uses: actions/upload-artifact@v1
-    with:
-      name: ldn_mitm.elf
-      path: ldn_mitm/ldn_mitm.elf
+      uses: actions/upload-artifact@v1
+      with:
+        name: ldn_mitm.elf
+        path: ldn_mitm/ldn_mitm.elf
   
