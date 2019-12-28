@@ -29,7 +29,7 @@ extern "C" {
 
     u32 __nx_applet_type = AppletType_None;
 
-    #define INNER_HEAP_SIZE 0x260000
+    #define INNER_HEAP_SIZE 0x100000
     size_t nx_inner_heap_size = INNER_HEAP_SIZE;
     char   nx_inner_heap[INNER_HEAP_SIZE];
     
@@ -69,15 +69,20 @@ void __appInit(void) {
     const SocketInitConfig socketInitConfig = {
         .bsdsockets_version = 1,
 
-        .tcp_tx_buf_size = 8 * SOCK_BUFFERSIZE,
-        .tcp_rx_buf_size = 8 * SOCK_BUFFERSIZE,
-        .tcp_tx_buf_max_size = 16 * SOCK_BUFFERSIZE,
-        .tcp_rx_buf_max_size = 16 * SOCK_BUFFERSIZE,
+        .tcp_tx_buf_size = 0x800,
+        .tcp_rx_buf_size = 0x1000,
+        .tcp_tx_buf_max_size = 0x2000,
+        .tcp_rx_buf_max_size = 0x2000,
 
-        .udp_tx_buf_size = 0x2400,
-        .udp_rx_buf_size = 0xA500,
+        .udp_tx_buf_size = 0x2000,
+        .udp_rx_buf_size = 0x2000,
 
-        .sb_efficiency = 8,
+        .sb_efficiency = 4,
+
+        .serialized_out_addrinfos_max_size  = 0x1000,
+        .serialized_out_hostent_max_size    = 0x200,
+        .bypass_nsd                         = false,
+        .dns_timeout                        = 0,
     };
     sm::DoWithSession([&]() {
         R_ASSERT(fsInitialize());
