@@ -5,4 +5,4 @@ services:
     build: .
     volumes:
       - ".:/code"
-    command: make
+    command: make -j8

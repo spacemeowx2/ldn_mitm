@@ -75,8 +75,8 @@ namespace ams::mitm::ldn {
         private:
             void onEventFired();
         private:
-            Result Initialize(u64 unk, sf::ClientProcessId pid);
-            Result InitializeSystem2(u64 unk, sf::ClientProcessId pid);
+            Result Initialize(const sf::ClientProcessId &client_process_id);
+            Result InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id);
             Result Finalize();
             Result GetState(sf::Out<u32> state);
             Result GetNetworkInfo(sf::Out<NetworkInfo> buffer);

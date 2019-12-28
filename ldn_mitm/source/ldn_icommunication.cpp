@@ -7,8 +7,8 @@ namespace ams::mitm::ldn {
 
     // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
-    Result ICommunicationInterface::Initialize(u64 unk, sf::ClientProcessId pid) {
-        LogFormat("ICommunicationInterface::Initialize unk: %" PRIu64 " pid: %" PRIu64, unk, pid);
+    Result ICommunicationInterface::Initialize(const sf::ClientProcessId &client_process_id) {
+        LogFormat("ICommunicationInterface::Initialize pid: %" PRIu64, client_process_id);
 
         if (this->state_event == nullptr) {
             this->state_event = new os::SystemEvent(true);
@@ -21,8 +21,9 @@ namespace ams::mitm::ldn {
         return ResultSuccess();
     }
 
-    Result ICommunicationInterface::InitializeSystem2(u64 unk, sf::ClientProcessId pid) {
-        return this->Initialize(unk, pid);
+    Result ICommunicationInterface::InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id) {
+        LogFormat("ICommunicationInterface::InitializeSystem2 unk: %" PRIu64, unk);
+        return this->Initialize(client_process_id);
     }
 
     Result ICommunicationInterface::Finalize() {
