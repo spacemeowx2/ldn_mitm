@@ -79,10 +79,8 @@ void __appInit(void) {
 
         .sb_efficiency = 4,
 
-        .serialized_out_addrinfos_max_size  = 0x1000,
-        .serialized_out_hostent_max_size    = 0x200,
-        .bypass_nsd                         = false,
-        .dns_timeout                        = 0,
+        .num_bsd_sessions = 3,
+        .bsd_service_type = BsdServiceType_User,
     };
     sm::DoWithSession([&]() {
         R_ASSERT(fsInitialize());
