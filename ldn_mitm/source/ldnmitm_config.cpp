@@ -9,7 +9,7 @@ namespace ams::mitm::ldn {
         return ::SaveLogToFile();
     }
     Result LdnConfig::GetVersion(sf::Out<LdnMitmVersion> version) {
-        std::strcpy(version.GetPointer()->raw, ATMOSPHERE_GIT_REVISION);
+        std::strcpy(version.GetPointer()->raw, GITDESCVER);
         return 0;
     }
     Result LdnConfig::GetLogging(sf::Out<u32> enabled) {
