@@ -141,7 +141,7 @@ namespace ams::mitm::ldn {
         uint32_t option;
     };
 
-    struct NodeLatestUpdate {
+    struct NodeLatestUpdate : sf::PrefersPointerTransferMode {
         uint8_t stateChange;
         uint8_t _unk[7];
     };
