@@ -1,7 +1,7 @@
 KIPS := ldn_mitm
 NROS := ldnmitm_config
 
-SUBFOLDERS := Atmosphere-libs $(KIPS) $(NROS)
+SUBFOLDERS := Atmosphere-libs/libstratosphere $(KIPS) $(NROS)
 
 TOPTARGETS := all clean
 
@@ -15,7 +15,7 @@ $(TOPTARGETS): PACK
 $(SUBFOLDERS):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 
-$(KIPS): Atmosphere-libs
+$(KIPS): Atmosphere-libs/libstratosphere
 
 #---------------------------------------------------------------------------------
 PACK: $(SUBFOLDERS)
