@@ -18,6 +18,15 @@ namespace ams::mitm::ldn {
         Connect,
         Connected,
     };
+    enum class DisconnectReason {
+        None,
+        DisconnectedByUser,
+        DisconnectedBySystem,
+        DestroyedByUser,
+        DestroyedBySystem,
+        Rejected,
+        SignalLost
+    };
 
     class LANDiscovery;
 
@@ -89,9 +98,7 @@ namespace ams::mitm::ldn {
                 return UdpLanSocketBase::getFd();
             }
             int onRead() override;
-            void onClose() override {
-                LogFormat("LDUdpSocket::onClose");
-            };
+            void onClose() override;
     };
 
     class LDTcpSocket : public TcpLanSocketBase, public Pollable {
@@ -113,6 +120,7 @@ namespace ams::mitm::ldn {
             typedef std::function<int(LANPacketType, const void *, size_t)> ReplyFunc;
             typedef std::function<void()> LanEventFunc;
             static const LanEventFunc EmptyFunc;
+            DisconnectReason disconnect_reason;
         protected:
             friend class LDUdpSocket;
             friend class LDTcpSocket;
@@ -161,10 +169,12 @@ namespace ams::mitm::ldn {
             Result closeStation();
         public:
             LANDiscovery(u16 port = DefaultPort) :
+                disconnect_reason(DisconnectReason::None),
                 stations({{{1, this}, {2, this}, {3, this}, {4, this}, {5, this}, {6, this}, {7, this}}}),
                 stop(false), inited(false),
                 networkInfo({}), listenPort(port),
-                state(CommState::None) {
+                state(CommState::None)
+            {
                 LogFormat("LANDiscovery");
             };
             ~LANDiscovery();
