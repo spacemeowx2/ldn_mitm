@@ -78,6 +78,11 @@ namespace ams::mitm::ldn {
         });
     }
 
+    void LDUdpSocket::onClose() {
+        discovery->disconnect_reason = DisconnectReason::SignalLost;
+        discovery->setState(CommState::Error);
+    };
+
     int LDTcpSocket::onRead() {
         LogFormat("LDTcpSocket::onRead");
         const auto state = this->discovery->getState();
@@ -164,6 +169,7 @@ namespace ams::mitm::ldn {
     }
 
     void LANDiscovery::onDisconnectFromHost() {
+        this->disconnect_reason = DisconnectReason::DisconnectedBySystem;
         LogFormat("onDisconnectFromHost state: %d", static_cast<int>(this->state));
         if (this->state == CommState::StationConnected) {
             this->setState(CommState::Station);
@@ -470,7 +476,7 @@ namespace ams::mitm::ldn {
             if (rc < 0) {
                 break;
             }
-            svcSleepThread(0);
+            svcSleepThread(10000000L); // 10ms
         }
         LogFormat("Worker exit");
     }
@@ -553,6 +559,8 @@ namespace ams::mitm::ldn {
         } else {
             this->networkInfo.common.channel = networkConfig->channel;
         }
+
+        ams::os::GenerateRandomBytes(&this->networkInfo.networkId.sessionId, sizeof(SessionId));
         this->networkInfo.networkId.intentId = networkConfig->intentId;
 
         NodeInfo *node0 = &this->networkInfo.ldn.nodes[0];
@@ -591,6 +599,7 @@ namespace ams::mitm::ldn {
     }
 
     Result LANDiscovery::openAccessPoint() {
+        this->disconnect_reason = DisconnectReason::None;
         if (this->state == CommState::None) {
             return MAKERESULT(LdnModuleId, 32);
         }
@@ -621,6 +630,7 @@ namespace ams::mitm::ldn {
     }
 
     Result LANDiscovery::openStation() {
+        this->disconnect_reason = DisconnectReason::None;
         if (this->state == CommState::None) {
             return MAKERESULT(LdnModuleId, 32);
         }

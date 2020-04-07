@@ -97,7 +97,9 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationInterface::GetDisconnectReason(sf::Out<u32> reason) {
-        reason.SetValue(0);
+        auto dr = static_cast<u32>(this->lanDiscovery.disconnect_reason);
+        LogFormat("GetDisconnectReason %p state: %d reason: %u", reason.GetPointer(), static_cast<u32>(this->lanDiscovery.getState()), dr);
+        reason.SetValue(dr);
 
         return 0;
     }
