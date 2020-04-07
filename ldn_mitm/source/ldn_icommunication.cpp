@@ -23,6 +23,7 @@ namespace ams::mitm::ldn {
 
     Result ICommunicationInterface::InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id) {
         LogFormat("ICommunicationInterface::InitializeSystem2 unk: %" PRIu64, unk);
+        this->error_state = unk;
         return this->Initialize(client_process_id);
     }
 
@@ -78,6 +79,12 @@ namespace ams::mitm::ldn {
 
     Result ICommunicationInterface::GetState(sf::Out<u32> state) {
         state.SetValue(static_cast<u32>(this->lanDiscovery.getState()));
+
+        if (this->error_state) {
+            if (this->lanDiscovery.disconnect_reason != DisconnectReason::None) {
+                return MAKERESULT(0x10, static_cast<u32>(this->lanDiscovery.disconnect_reason));
+            }
+        }
 
         return 0;
     }

@@ -59,8 +59,9 @@ namespace ams::mitm::ldn {
         private:
             LANDiscovery lanDiscovery;
             os::SystemEvent *state_event;
+            u64 error_state;
         public:
-            ICommunicationInterface() : state_event(nullptr) {
+            ICommunicationInterface() : state_event(nullptr), error_state(0) {
                 LogFormat("ICommunicationInterface");
                 /* ... */
             };
