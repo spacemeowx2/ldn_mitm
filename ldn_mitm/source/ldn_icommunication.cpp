@@ -11,7 +11,8 @@ namespace ams::mitm::ldn {
         LogFormat("ICommunicationInterface::Initialize pid: %" PRIu64, client_process_id);
 
         if (this->state_event == nullptr) {
-            this->state_event = new os::SystemEvent(true);
+            // ClearMode, inter_process
+            this->state_event = new os::SystemEvent(ams::os::EventClearMode_AutoClear, true);
         }
 
         R_TRY(lanDiscovery.initialize([&](){
@@ -30,7 +31,6 @@ namespace ams::mitm::ldn {
     Result ICommunicationInterface::Finalize() {
         Result rc = lanDiscovery.finalize();
         if (this->state_event) {
-            this->state_event->Finalize();
             delete this->state_event;
             this->state_event = nullptr;
         }

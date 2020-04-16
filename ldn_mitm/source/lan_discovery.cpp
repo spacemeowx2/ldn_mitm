@@ -704,10 +704,7 @@ namespace ams::mitm::ldn {
 
         if (this->inited) {
             this->stop = true;
-            rc = this->workerThread.Join();
-            if (R_FAILED(rc)) {
-                LogFormat("thread.join %d", rc);
-            }
+            os::WaitThread(&this->workerThread);
             this->udp.reset();
             this->tcp.reset();
             this->resetStations();
@@ -751,17 +748,13 @@ namespace ams::mitm::ldn {
             return rc;
         }
 
-        rc = this->workerThread.Initialize(&Worker, this, 0x4000, 0x15, 2);
+        rc = os::CreateThread(&this->workerThread, &Worker, this, stack.get(), StackSize, 0x15, 2);
         if (R_FAILED(rc)) {
             LogFormat("LANDiscovery Failed to threadCreate: %x", rc);
             return 0xF601;
         }
 
-        rc = this->workerThread.Start();
-        if (R_FAILED(rc)) {
-            LogFormat("LANDiscovery Failed to threadStart %x", rc);
-            return 0xF601;
-        }
+        os::StartThread(&this->workerThread);
         this->setState(CommState::Initialized);
 
         this->inited = true;
