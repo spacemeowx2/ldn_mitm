@@ -169,7 +169,6 @@ namespace ams::mitm::ldn {
     }
 
     void LANDiscovery::onDisconnectFromHost() {
-        this->disconnect_reason = DisconnectReason::DisconnectedBySystem;
         LogFormat("onDisconnectFromHost state: %d", static_cast<int>(this->state));
         if (this->state == CommState::StationConnected) {
             this->setState(CommState::Station);
