@@ -16,7 +16,7 @@ Result _nifmSetConnectionConfirmationOption(s8 option);
 Result _nifmSubmitRequest();
 
 Result ipinfoInit() {
-    atomicIncrement64(&g_nifmRefCount);
+    g_nifmRefCount++;
     if (serviceIsActive(&g_nifmSrv))
         return 0;
 
@@ -39,7 +39,7 @@ Result ipinfoInit() {
 }
 
 void ipinfoExit() {
-    if (atomicDecrement64(&g_nifmRefCount) == 0) {
+    if (--g_nifmRefCount == 0) {
         serviceClose(&g_nifmIReq);
         serviceClose(&g_nifmIGS);
         serviceClose(&g_nifmSrv);

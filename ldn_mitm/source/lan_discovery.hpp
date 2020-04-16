@@ -13,6 +13,7 @@
 #include "lan_protocol.hpp"
 
 namespace ams::mitm::ldn {
+    const size_t StackSize = 0x4000;
     enum class NodeStatus : u8 {
         Disconnected,
         Connect,
@@ -137,7 +138,7 @@ namespace ams::mitm::ldn {
             bool inited;
             NetworkInfo networkInfo;
             u16 listenPort;
-            os::Thread workerThread;
+            os::ThreadType workerThread;
             CommState state;
             void worker();
             int loopPoll();
@@ -151,6 +152,7 @@ namespace ams::mitm::ldn {
             Result getFakeMac(MacAddress *mac);
             Result getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion);
             LanEventFunc lanEvent;
+            std::unique_ptr<u8[StackSize]> stack;
         public:
             Result initialize(LanEventFunc lanEvent = EmptyFunc, bool listening = true);
             Result finalize();
@@ -170,6 +172,7 @@ namespace ams::mitm::ldn {
         public:
             LANDiscovery(u16 port = DefaultPort) :
                 disconnect_reason(DisconnectReason::None),
+                pollMutex(false),
                 stations({{{1, this}, {2, this}, {3, this}, {4, this}, {5, this}, {6, this}, {7, this}}}),
                 stop(false), inited(false),
                 networkInfo({}), listenPort(port),
