@@ -22,8 +22,8 @@
 #include "debug.hpp"
 
 const size_t TlsBackupSize = 0x100;
-// 1MB
-const size_t MemoryLogSize = 0x400 * 0x400;
+// 100 KB
+const size_t MemoryLogSize = 100 * 1024;
 
 #ifndef ENABLE_MEMLOG
 #define ENABLE_MEMLOG 1
