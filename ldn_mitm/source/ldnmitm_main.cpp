@@ -62,7 +62,7 @@ void __libnx_initheap(void) {
 void __appInit(void) {
     svcSleepThread(10000000000L);
 
-    hos::SetVersionForLibnx();
+    hos::InitializeForStratosphere();
 
 
     #define SOCK_BUFFERSIZE 0x1000
