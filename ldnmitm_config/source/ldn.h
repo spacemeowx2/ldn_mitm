@@ -5,6 +5,10 @@
 extern "C" {
 #endif
 
+typedef struct {
+    Service s;
+} LdnMitmConfigService;
+
 Result ldnMitmSaveLogToFile(LdnMitmConfigService *s);
 Result ldnMitmGetVersion(LdnMitmConfigService *s, char *version);
 Result ldnMitmGetLogging(LdnMitmConfigService *s, u32 *enabled);
