@@ -25,7 +25,7 @@
 namespace ams::mitm::ldn {
     class ICommunicationInterface : public sf::IServiceObject {
         private:
-            enum class CommandId {
+            /* enum class CommandId {
                 GetState = 0,
                 GetNetworkInfo = 1,
                 GetIpv4Address = 2,
@@ -55,7 +55,7 @@ namespace ams::mitm::ldn {
                 Initialize = 400,
                 Finalize = 401,
                 InitializeSystem2 = 402,                 // nyi
-            };
+            }; */
         private:
             LANDiscovery lanDiscovery;
             os::SystemEvent *state_event;
@@ -75,7 +75,8 @@ namespace ams::mitm::ldn {
             };
         private:
             void onEventFired();
-        private:
+        // private:
+        public:
             Result Initialize(const sf::ClientProcessId &client_process_id);
             Result InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id);
             Result Finalize();
@@ -100,7 +101,7 @@ namespace ams::mitm::ldn {
             Result GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates);
             Result SetWirelessControllerRestriction();
         public:
-            DEFINE_SERVICE_DISPATCH_TABLE {
+            /* DEFINE_SERVICE_DISPATCH_TABLE {
                 MAKE_SERVICE_COMMAND_META(GetState),
                 MAKE_SERVICE_COMMAND_META(GetNetworkInfo),
                 MAKE_SERVICE_COMMAND_META(GetIpv4Address),
@@ -124,6 +125,7 @@ namespace ams::mitm::ldn {
                 MAKE_SERVICE_COMMAND_META(Initialize),
                 MAKE_SERVICE_COMMAND_META(Finalize),
                 MAKE_SERVICE_COMMAND_META(InitializeSystem2),
-            };
+            }; */
     };
+    static_assert(sf::IsServiceObject<ICommunicationInterface>);
 }
