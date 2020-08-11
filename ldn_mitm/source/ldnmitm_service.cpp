@@ -21,19 +21,21 @@
 #include "ldn_icommunication.hpp"
 
 namespace ams::mitm::ldn {
-    Result LdnMitMService::CreateUserLocalCommunicationService(sf::Out<std::shared_ptr<ICommunicationInterface>> out) {
+    Result LdnMitMService::CreateUserLocalCommunicationService(sf::Out<std::shared_ptr<ILdnCommunication>> out) {
         LogFormat("CreateUserLocalCommunicationService: enabled %d", static_cast<u32>(LdnConfig::getEnabled()));
 
         if (LdnConfig::getEnabled()) {
-            auto comm = std::make_shared<ICommunicationInterface>();
+            // auto comm = std::make_shared<ILdnCommunication>();
+            auto comm = sf::MakeShared<ILdnCommunication, ICommunicationInterface>();
             out.SetValue(std::move(comm));
             return 0;
         }
 
         return sm::mitm::ResultShouldForwardToSession();
     }
-    Result LdnMitMService::CreateLdnMitmConfigService(sf::Out<std::shared_ptr<LdnConfig>> out) {
-        out.SetValue(std::move(std::make_shared<LdnConfig>()));
+    Result LdnMitMService::CreateLdnMitmConfigService(sf::Out<std::shared_ptr<ILdnConfig>> out) {
+        // out.SetValue(std::move(std::make_shared<ILdnConfig>()));
+        out.SetValue(std::move(sf::MakeShared<ILdnConfig, LdnConfig>()));
 
         return 0;
     }

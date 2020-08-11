@@ -69,14 +69,6 @@ namespace ams::mitm::ldn {
         return lanDiscovery.setAdvertiseData(data.GetPointer(), data.GetSize());
     }
 
-    Result ICommunicationInterface::SetStationAcceptPolicy(u8 policy) {
-        return 0;
-    }
-
-    Result ICommunicationInterface::SetWirelessControllerRestriction() {
-        return 0;
-    }
-
     Result ICommunicationInterface::GetState(sf::Out<u32> state) {
         state.SetValue(static_cast<u32>(this->lanDiscovery.getState()));
 
@@ -176,5 +168,38 @@ namespace ams::mitm::ldn {
             LogFormat("onEventFired signal_event");
             this->state_event->Signal();
         }
+    }
+
+    /*nyi*/
+    Result ICommunicationInterface::SetStationAcceptPolicy(u8 policy) {
+        return 0;
+    }
+
+    Result ICommunicationInterface::SetWirelessControllerRestriction() {
+        return 0;
+    }
+
+    Result ICommunicationInterface::ScanPrivate() {
+        return 0;
+    }
+
+    Result ICommunicationInterface::CreateNetworkPrivate() {
+        return 0;
+    }
+
+    Result ICommunicationInterface::Reject() {
+        return 0;
+    }
+
+    Result ICommunicationInterface::AddAcceptFilterEntry() {
+        return 0;
+    }
+
+    Result ICommunicationInterface::ClearAcceptFilter() {
+        return 0;
+    }
+
+    Result ICommunicationInterface::ConnectPrivate() {
+        return 0;
     }
 }

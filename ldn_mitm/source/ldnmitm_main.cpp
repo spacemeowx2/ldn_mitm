@@ -115,9 +115,9 @@ int main(int argc, char **argv)
     constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
     sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
 
-    R_ASSERT(server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(MitmServiceName));
+    R_ASSERT((server_manager.RegisterMitmServer<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(MitmServiceName)));
 
-    server_manager.RegisterServer<ams::mitm::ldn::LdnConfig>(sm::ServiceName::Encode("ldnmitm"), 3);
+    server_manager.RegisterServer<ams::mitm::ldn::ILdnConfig, ams::mitm::ldn::LdnConfig>(sm::ServiceName::Encode("ldnmitm"), 3);
 
     server_manager.LoopProcess();
 
