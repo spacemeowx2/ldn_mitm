@@ -21,41 +21,11 @@
 #include "lan_discovery.hpp"
 #include "ldn_types.hpp"
 #include "ipinfo.hpp"
+#include "prov/icommunication.hpp"
 
 namespace ams::mitm::ldn {
-    class ICommunicationInterface : public sf::IServiceObject {
-        private:
-            /* enum class CommandId {
-                GetState = 0,
-                GetNetworkInfo = 1,
-                GetIpv4Address = 2,
-                GetDisconnectReason = 3,
-                GetSecurityParameter = 4,
-                GetNetworkConfig = 5,
-                AttachStateChangeEvent = 100,
-                GetNetworkInfoLatestUpdate = 101,
-                Scan = 102,
-                ScanPrivate = 103,                       // nyi
-                SetWirelessControllerRestriction = 104,  // nyi
-                OpenAccessPoint = 200,
-                CloseAccessPoint = 201,
-                CreateNetwork = 202,
-                CreateNetworkPrivate = 203,              // nyi
-                DestroyNetwork = 204,
-                Reject = 205,                            // nyi
-                SetAdvertiseData = 206,
-                SetStationAcceptPolicy = 207,            // nyi
-                AddAcceptFilterEntry = 208,              // nyi
-                ClearAcceptFilter = 209,                 // nyi
-                OpenStation = 300,
-                CloseStation = 301,
-                Connect = 302,
-                ConnectPrivate = 303,                    // nyi
-                Disconnect = 304,
-                Initialize = 400,
-                Finalize = 401,
-                InitializeSystem2 = 402,                 // nyi
-            }; */
+    // class ICommunicationInterface : public sf::IServiceObject {
+    class ICommunicationInterface final{
         private:
             LANDiscovery lanDiscovery;
             os::SystemEvent *state_event;
@@ -78,7 +48,6 @@ namespace ams::mitm::ldn {
         // private:
         public:
             Result Initialize(const sf::ClientProcessId &client_process_id);
-            Result InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id);
             Result Finalize();
             Result GetState(sf::Out<u32> state);
             Result GetNetworkInfo(sf::Out<NetworkInfo> buffer);
@@ -94,38 +63,22 @@ namespace ams::mitm::ldn {
             Result CloseStation();
             Result Disconnect();
             Result SetAdvertiseData(sf::InAutoSelectBuffer data);
-            Result SetStationAcceptPolicy(u8 policy);
             Result AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle);
             Result Scan(sf::Out<u32> count, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter);
             Result Connect(ConnectNetworkData dat, NetworkInfo &data);
             Result GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates);
+
+            /*nyi----------------------------------------------------------------------------*/
             Result SetWirelessControllerRestriction();
-        public:
-            /* DEFINE_SERVICE_DISPATCH_TABLE {
-                MAKE_SERVICE_COMMAND_META(GetState),
-                MAKE_SERVICE_COMMAND_META(GetNetworkInfo),
-                MAKE_SERVICE_COMMAND_META(GetIpv4Address),
-                MAKE_SERVICE_COMMAND_META(GetDisconnectReason),
-                MAKE_SERVICE_COMMAND_META(GetSecurityParameter),
-                MAKE_SERVICE_COMMAND_META(GetNetworkConfig),
-                MAKE_SERVICE_COMMAND_META(AttachStateChangeEvent),
-                MAKE_SERVICE_COMMAND_META(GetNetworkInfoLatestUpdate),
-                MAKE_SERVICE_COMMAND_META(Scan),
-                MAKE_SERVICE_COMMAND_META(SetWirelessControllerRestriction),
-                MAKE_SERVICE_COMMAND_META(OpenAccessPoint),
-                MAKE_SERVICE_COMMAND_META(CloseAccessPoint),
-                MAKE_SERVICE_COMMAND_META(CreateNetwork),
-                MAKE_SERVICE_COMMAND_META(DestroyNetwork),
-                MAKE_SERVICE_COMMAND_META(OpenStation),
-                MAKE_SERVICE_COMMAND_META(CloseStation),
-                MAKE_SERVICE_COMMAND_META(Connect),
-                MAKE_SERVICE_COMMAND_META(Disconnect),
-                MAKE_SERVICE_COMMAND_META(SetAdvertiseData),
-                MAKE_SERVICE_COMMAND_META(SetStationAcceptPolicy),
-                MAKE_SERVICE_COMMAND_META(Initialize),
-                MAKE_SERVICE_COMMAND_META(Finalize),
-                MAKE_SERVICE_COMMAND_META(InitializeSystem2),
-            }; */
+            Result ScanPrivate();
+            Result CreateNetworkPrivate();
+            Result Reject();
+            Result AddAcceptFilterEntry();
+            Result ClearAcceptFilter();
+            Result ConnectPrivate();
+            Result SetStationAcceptPolicy(u8 policy);
+            Result InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id);
+            /*-------------------------------------------------------------------------------*/
     };
-    static_assert(sf::IsServiceObject<ICommunicationInterface>);
+    static_assert(ams::mitm::ldn::IsILdnCommunication<ICommunicationInterface>);
 }
