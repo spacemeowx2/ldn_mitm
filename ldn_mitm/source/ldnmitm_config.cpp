@@ -4,7 +4,6 @@
 
 namespace ams::mitm::ldn {
     std::atomic_bool LdnConfig::LdnEnabled = true;
-    // LdnEnabled = true;
 
     Result LdnConfig::SaveLogToFile() {
         return ::SaveLogToFile();

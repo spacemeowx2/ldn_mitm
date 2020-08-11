@@ -2,11 +2,10 @@
 
 #include <switch.h>
 #include <stratosphere.hpp>
-#include "prov/iconfig.hpp"
+#include "interfaces/iconfig.hpp"
 
 namespace ams::mitm::ldn {
 
-    // class LdnConfig : public sf::IServiceObject {
     class LdnConfig final {
         public:
             static bool getEnabled() {

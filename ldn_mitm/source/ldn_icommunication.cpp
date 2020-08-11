@@ -7,8 +7,8 @@ namespace ams::mitm::ldn {
 
     // https://reswitched.github.io/SwIPC/ifaces.html#nn::ldn::detail::IUserLocalCommunicationService
 
-    Result ICommunicationInterface::Initialize(const sf::ClientProcessId &client_process_id) {
-        LogFormat("ICommunicationInterface::Initialize pid: %" PRIu64, client_process_id);
+    Result ICommunicationService::Initialize(const sf::ClientProcessId &client_process_id) {
+        LogFormat("ICommunicationService::Initialize pid: %" PRIu64, client_process_id);
 
         if (this->state_event == nullptr) {
             // ClearMode, inter_process
@@ -22,13 +22,13 @@ namespace ams::mitm::ldn {
         return ResultSuccess();
     }
 
-    Result ICommunicationInterface::InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id) {
-        LogFormat("ICommunicationInterface::InitializeSystem2 unk: %" PRIu64, unk);
+    Result ICommunicationService::InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id) {
+        LogFormat("ICommunicationService::InitializeSystem2 unk: %" PRIu64, unk);
         this->error_state = unk;
         return this->Initialize(client_process_id);
     }
 
-    Result ICommunicationInterface::Finalize() {
+    Result ICommunicationService::Finalize() {
         Result rc = lanDiscovery.finalize();
         if (this->state_event) {
             delete this->state_event;
@@ -37,39 +37,39 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationInterface::OpenAccessPoint() {
+    Result ICommunicationService::OpenAccessPoint() {
         return this->lanDiscovery.openAccessPoint();
     }
 
-    Result ICommunicationInterface::CloseAccessPoint() {
+    Result ICommunicationService::CloseAccessPoint() {
         return this->lanDiscovery.closeAccessPoint();
     }
 
-    Result ICommunicationInterface::DestroyNetwork() {
+    Result ICommunicationService::DestroyNetwork() {
         return this->lanDiscovery.destroyNetwork();
     }
 
-    Result ICommunicationInterface::OpenStation() {
+    Result ICommunicationService::OpenStation() {
         return this->lanDiscovery.openStation();
     }
 
-    Result ICommunicationInterface::CloseStation() {
+    Result ICommunicationService::CloseStation() {
         return this->lanDiscovery.closeStation();
     }
 
-    Result ICommunicationInterface::Disconnect() {
+    Result ICommunicationService::Disconnect() {
         return this->lanDiscovery.disconnect();
     }
 
-    Result ICommunicationInterface::CreateNetwork(CreateNetworkConfig data) {
+    Result ICommunicationService::CreateNetwork(CreateNetworkConfig data) {
         return this->lanDiscovery.createNetwork(&data.securityConfig, &data.userConfig, &data.networkConfig);;
     }
 
-    Result ICommunicationInterface::SetAdvertiseData(sf::InAutoSelectBuffer data) {
+    Result ICommunicationService::SetAdvertiseData(sf::InAutoSelectBuffer data) {
         return lanDiscovery.setAdvertiseData(data.GetPointer(), data.GetSize());
     }
 
-    Result ICommunicationInterface::GetState(sf::Out<u32> state) {
+    Result ICommunicationService::GetState(sf::Out<u32> state) {
         state.SetValue(static_cast<u32>(this->lanDiscovery.getState()));
 
         if (this->error_state) {
@@ -81,7 +81,7 @@ namespace ams::mitm::ldn {
         return 0;
     }
 
-    Result ICommunicationInterface::GetIpv4Address(sf::Out<u32> address, sf::Out<u32> netmask) {
+    Result ICommunicationService::GetIpv4Address(sf::Out<u32> address, sf::Out<u32> netmask) {
         Result rc = ipinfoGetIpConfig(address.GetPointer(), netmask.GetPointer());
 
         LogFormat("get_ipv4_address %x %x", address.GetValue(), netmask.GetValue());
@@ -89,13 +89,13 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationInterface::GetNetworkInfo(sf::Out<NetworkInfo> buffer) {
+    Result ICommunicationService::GetNetworkInfo(sf::Out<NetworkInfo> buffer) {
         LogFormat("get_network_info %p state: %d", buffer.GetPointer(), static_cast<u32>(this->lanDiscovery.getState()));
 
         return lanDiscovery.getNetworkInfo(buffer.GetPointer());
     }
 
-    Result ICommunicationInterface::GetDisconnectReason(sf::Out<u32> reason) {
+    Result ICommunicationService::GetDisconnectReason(sf::Out<u32> reason) {
         auto dr = static_cast<u32>(this->lanDiscovery.disconnect_reason);
         LogFormat("GetDisconnectReason %p state: %d reason: %u", reason.GetPointer(), static_cast<u32>(this->lanDiscovery.getState()), dr);
         reason.SetValue(dr);
@@ -103,14 +103,14 @@ namespace ams::mitm::ldn {
         return 0;
     }
 
-    Result ICommunicationInterface::GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates) {
+    Result ICommunicationService::GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates) {
         LogFormat("get_network_info_latest buffer %p", buffer.GetPointer());
         LogFormat("get_network_info_latest pUpdates %p %" PRIu64, pUpdates.GetPointer(), pUpdates.GetSize());
 
         return lanDiscovery.getNetworkInfo(buffer.GetPointer(), pUpdates.GetPointer(), pUpdates.GetSize());
     }
 
-    Result ICommunicationInterface::GetSecurityParameter(sf::Out<SecurityParameter> out) {
+    Result ICommunicationService::GetSecurityParameter(sf::Out<SecurityParameter> out) {
         Result rc = 0;
 
         SecurityParameter data;
@@ -124,7 +124,7 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationInterface::GetNetworkConfig(sf::Out<NetworkConfig> out) {
+    Result ICommunicationService::GetNetworkConfig(sf::Out<NetworkConfig> out) {
         Result rc = 0;
 
         NetworkConfig data;
@@ -138,12 +138,12 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationInterface::AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle) {
+    Result ICommunicationService::AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle) {
         handle.SetValue(this->state_event->GetReadableHandle());
         return ResultSuccess();
     }
 
-    Result ICommunicationInterface::Scan(sf::Out<u32> outCount, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
+    Result ICommunicationService::Scan(sf::Out<u32> outCount, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
         Result rc = 0;
         u16 count = buffer.GetSize();
 
@@ -155,15 +155,15 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationInterface::Connect(ConnectNetworkData param, NetworkInfo &data) {
-        LogFormat("ICommunicationInterface::connect");
+    Result ICommunicationService::Connect(ConnectNetworkData param, NetworkInfo &data) {
+        LogFormat("ICommunicationService::connect");
         LogHex(&data, sizeof(NetworkInfo));
         LogHex(&param, sizeof(param));
 
         return lanDiscovery.connect(&data, &param.userConfig, param.localCommunicationVersion);
     }
 
-    void ICommunicationInterface::onEventFired() {
+    void ICommunicationService::onEventFired() {
         if (this->state_event) {
             LogFormat("onEventFired signal_event");
             this->state_event->Signal();
@@ -171,35 +171,35 @@ namespace ams::mitm::ldn {
     }
 
     /*nyi*/
-    Result ICommunicationInterface::SetStationAcceptPolicy(u8 policy) {
+    Result ICommunicationService::SetStationAcceptPolicy(u8 policy) {
         return 0;
     }
 
-    Result ICommunicationInterface::SetWirelessControllerRestriction() {
+    Result ICommunicationService::SetWirelessControllerRestriction() {
         return 0;
     }
 
-    Result ICommunicationInterface::ScanPrivate() {
+    Result ICommunicationService::ScanPrivate() {
         return 0;
     }
 
-    Result ICommunicationInterface::CreateNetworkPrivate() {
+    Result ICommunicationService::CreateNetworkPrivate() {
         return 0;
     }
 
-    Result ICommunicationInterface::Reject() {
+    Result ICommunicationService::Reject() {
         return 0;
     }
 
-    Result ICommunicationInterface::AddAcceptFilterEntry() {
+    Result ICommunicationService::AddAcceptFilterEntry() {
         return 0;
     }
 
-    Result ICommunicationInterface::ClearAcceptFilter() {
+    Result ICommunicationService::ClearAcceptFilter() {
         return 0;
     }
 
-    Result ICommunicationInterface::ConnectPrivate() {
+    Result ICommunicationService::ConnectPrivate() {
         return 0;
     }
 }

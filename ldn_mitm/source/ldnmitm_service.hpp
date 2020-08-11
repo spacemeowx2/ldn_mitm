@@ -6,10 +6,9 @@
 #include "ldn_icommunication.hpp"
 #include "ldnmitm_config.hpp"
 #include "debug.hpp"
-#include "prov/iservice.hpp"
+#include "interfaces/iservice.hpp"
 
 namespace ams::mitm::ldn {
-    // class LdnMitMService : public sf::IMitmServiceObject {
     class LdnMitMService final{
         protected:
             std::shared_ptr<::Service> forward_service;
@@ -24,7 +23,7 @@ namespace ams::mitm::ldn {
         // protected:
         public:
             /* Overridden commands. */
-            Result CreateUserLocalCommunicationService(sf::Out<std::shared_ptr<ILdnCommunication>> out);
+            Result CreateUserLocalCommunicationService(sf::Out<std::shared_ptr<ICommunicationInterface>> out);
             Result CreateLdnMitmConfigService(sf::Out<std::shared_ptr<ILdnConfig>> out);
     };
     static_assert(ams::mitm::ldn::IsILdnMitMService<LdnMitMService>);

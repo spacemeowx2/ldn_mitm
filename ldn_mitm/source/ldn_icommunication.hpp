@@ -21,23 +21,22 @@
 #include "lan_discovery.hpp"
 #include "ldn_types.hpp"
 #include "ipinfo.hpp"
-#include "prov/icommunication.hpp"
+#include "interfaces/icommunication.hpp"
 
 namespace ams::mitm::ldn {
-    // class ICommunicationInterface : public sf::IServiceObject {
-    class ICommunicationInterface final{
+    class ICommunicationService final{
         private:
             LANDiscovery lanDiscovery;
             os::SystemEvent *state_event;
             u64 error_state;
         public:
-            ICommunicationInterface() : state_event(nullptr), error_state(0) {
-                LogFormat("ICommunicationInterface");
+            ICommunicationService() : state_event(nullptr), error_state(0) {
+                LogFormat("ICommunicationService");
                 /* ... */
             };
             
-            ~ICommunicationInterface() {
-                LogFormat("~ICommunicationInterface");
+            ~ICommunicationService() {
+                LogFormat("~ICommunicationService");
                 if (this->state_event != nullptr) {
                     delete this->state_event;
                     this->state_event = nullptr;
@@ -80,5 +79,5 @@ namespace ams::mitm::ldn {
             Result InitializeSystem2(u64 unk, const sf::ClientProcessId &client_process_id);
             /*-------------------------------------------------------------------------------*/
     };
-    static_assert(ams::mitm::ldn::IsILdnCommunication<ICommunicationInterface>);
+    static_assert(ams::mitm::ldn::IsICommunicationInterface<ICommunicationService>);
 }
