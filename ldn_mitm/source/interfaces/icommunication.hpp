@@ -37,5 +37,5 @@ namespace ams::mitm::ldn {
         AMS_SF_METHOD_INFO(C, H, 401, Result, Finalize, ())                                                                                             \
         AMS_SF_METHOD_INFO(C, H, 402, Result, InitializeSystem2, (u64 unk, const sf::ClientProcessId &client_process_id))
 
-    AMS_SF_DEFINE_INTERFACE(ILdnCommunication, AMS_LDN_ICOMMUNICATION)
+    AMS_SF_DEFINE_INTERFACE(ICommunicationInterface, AMS_LDN_ICOMMUNICATION)
 }
