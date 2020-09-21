@@ -10,6 +10,7 @@ git submodule update --init --recursive
 
 | ldn_mitm version | Atmosphère version |
 | :--------------: | :----------------: |
+| 1.6.0            | 0.14.2/14.3/14.3   |
 | 1.5.0            | 0.14.0/14.1        |
 | 1.4.0            | 0.13               |
 | 1.3.4            | 0.11/0.12          |
