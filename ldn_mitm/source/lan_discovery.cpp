@@ -705,7 +705,7 @@ namespace ams::mitm::ldn {
         if (this->inited) {
             this->stop = true;
             os::WaitThread(&this->workerThread);
-			os::DestroyThread(&this->workerThread);
+            os::DestroyThread(&this->workerThread);
             this->udp.reset();
             this->tcp.reset();
             this->resetStations();
