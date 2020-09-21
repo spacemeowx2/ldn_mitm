@@ -1,0 +1,34 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: update Atmosphere-libs
+      run: |
+        pushd Atmosphere-libs
+        git reset --hard origin/master
+        popd
+    - uses: spacemeowx2/devkitpro-action@latest
+      with:
+        cmd: make -j8
+
+    - name: Upload built files
+      uses: actions/upload-artifact@v1
+      with:
+        name: sdcard
+        path: out/sd
+
+    - name: Upload elf file
+      uses: actions/upload-artifact@v1
+      with:
+        name: ldn_mitm.elf
+        path: ldn_mitm/ldn_mitm.elf
