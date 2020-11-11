@@ -536,6 +536,8 @@ namespace ams::mitm::ldn {
     }
 
     Result LANDiscovery::createNetwork(const SecurityConfig *securityConfig, const UserConfig *userConfig, const NetworkConfig *networkConfig) {
+        LogFormat("SecurityConfig");
+        LogHex(securityConfig->passphrase, securityConfig->passphraseSize);
         Result rc = 0;
 
         if (this->state != CommState::AccessPoint) {
