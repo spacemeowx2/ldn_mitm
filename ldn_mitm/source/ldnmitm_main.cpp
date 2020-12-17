@@ -112,12 +112,10 @@ int main(int argc, char **argv)
 {
     LogFormat("main");
 
-    constexpr sm::ServiceName MitmServiceNameUser = sm::ServiceName::Encode("ldn:u");
-    constexpr sm::ServiceName MitmServiceNameSys = sm::ServiceName::Encode("ldn:s");
+    constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
     sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
 
-    R_ASSERT((server_manager.RegisterMitmServer<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(MitmServiceNameUser)));
-    R_ASSERT((server_manager.RegisterMitmServer<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(MitmServiceNameSys)));
+    R_ASSERT((server_manager.RegisterMitmServer<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(MitmServiceName)));
 
     server_manager.RegisterServer<ams::mitm::ldn::ILdnConfig, ams::mitm::ldn::LdnConfig>(sm::ServiceName::Encode("ldnmitm"), 3);
 
