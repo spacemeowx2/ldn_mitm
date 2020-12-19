@@ -12,6 +12,8 @@ jobs:
     steps:
     - name: Set env
       run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
     - uses: actions/checkout@v1
       with:
         submodules: true
