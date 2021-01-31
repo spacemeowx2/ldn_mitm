@@ -90,8 +90,6 @@ void __appInit(void) {
 
     R_ASSERT(fsdevMountSdmc());
 
-    ams::CheckApiVersion();
-
     LogFormat("__appInit done");
 }
 
