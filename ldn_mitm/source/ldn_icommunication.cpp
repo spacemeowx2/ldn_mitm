@@ -12,7 +12,7 @@ namespace ams::mitm::ldn {
 
         if (this->state_event == nullptr) {
             // ClearMode, inter_process
-            this->state_event = new os::SystemEvent(ams::os::EventClearMode_AutoClear, true);
+            this->state_event = new os::SystemEvent(::ams::os::EventClearMode_AutoClear, true);
         }
 
         R_TRY(lanDiscovery.initialize([&](){
