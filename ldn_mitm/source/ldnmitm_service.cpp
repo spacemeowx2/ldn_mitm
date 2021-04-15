@@ -21,20 +21,26 @@
 #include "ldn_icommunication.hpp"
 
 namespace ams::mitm::ldn {
-    Result LdnMitMService::CreateUserLocalCommunicationService(sf::Out<std::shared_ptr<ICommunicationInterface>> out) {
+
+    using ObjectFactory = ams::sf::ObjectFactory<ams::sf::StdAllocationPolicy<std::allocator>>;
+
+    LdnMitMService::LdnMitMService(std::shared_ptr<::Service> &&s, const sm::MitmProcessInfo &c) : sf::MitmServiceImplBase(std::forward<std::shared_ptr<::Service>>(s), c)
+    {
+        LogFormat("created");
+    }
+
+    Result LdnMitMService::CreateUserLocalCommunicationService(sf::Out<sf::SharedPointer<ICommunicationInterface>> out) {
         LogFormat("CreateUserLocalCommunicationService: enabled %d", static_cast<u32>(LdnConfig::getEnabled()));
 
         if (LdnConfig::getEnabled()) {
-            auto comm = sf::MakeShared<ICommunicationInterface, ICommunicationService>();
-            out.SetValue(std::move(comm));
+            out.SetValue(sf::CreateSharedObjectEmplaced<ICommunicationInterface, ICommunicationService>());
             return 0;
         }
 
         return sm::mitm::ResultShouldForwardToSession();
     }
-    Result LdnMitMService::CreateLdnMitmConfigService(sf::Out<std::shared_ptr<ILdnConfig>> out) {
-        out.SetValue(std::move(sf::MakeShared<ILdnConfig, LdnConfig>()));
-
+    Result LdnMitMService::CreateLdnMitmConfigService(sf::Out<sf::SharedPointer<ILdnConfig>> out) {
+        out.SetValue(sf::CreateSharedObjectEmplaced<ILdnConfig, LdnConfig>());
         return 0;
     }
 }

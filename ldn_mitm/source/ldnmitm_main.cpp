@@ -108,18 +108,36 @@ struct LdnMitmManagerOptions {
     static constexpr size_t MaxDomainObjects = 0x100;
 };
 
+class ServerManager final : public sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> {
+            private:
+                virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
+};
+
+ServerManager g_server_manager;
+
+ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
+        /* Acknowledge the mitm session. */
+        std::shared_ptr<::Service> fsrv;
+        sm::MitmProcessInfo client_info;
+        server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
+        return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);   
+}
 int main(int argc, char **argv)
 {
+    SetLogging(true);
     LogFormat("main");
 
     constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
-    sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
+    //sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
+    R_ABORT_UNLESS((g_server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(0, MitmServiceName)));
+    LogFormat("registered");
+    g_server_manager.RegisterServer(1, sm::ServiceName::Encode("ldnmitm"), 3);
 
-    R_ASSERT((server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(0, MitmServiceName)));
+    SaveLogToFile();
 
-    server_manager.RegisterServer(1, sm::ServiceName::Encode("ldnmitm"), 3);
+    g_server_manager.LoopProcess();
 
-    server_manager.LoopProcess();
+    
 
     return 0;
 }

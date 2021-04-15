@@ -155,7 +155,7 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationService::Connect(ConnectNetworkData param, NetworkInfo &data) {
+    Result ICommunicationService::Connect(ConnectNetworkData param, const NetworkInfo &data) {
         LogFormat("ICommunicationService::connect");
         LogHex(&data, sizeof(NetworkInfo));
         LogHex(&param, sizeof(param));

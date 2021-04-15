@@ -6,7 +6,7 @@
 
 namespace ams::mitm::ldn {
 
-    class LdnConfig final {
+    class LdnConfig {
         public:
             static bool getEnabled() {
                 return LdnEnabled;
