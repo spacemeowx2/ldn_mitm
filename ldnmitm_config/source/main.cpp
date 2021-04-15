@@ -25,10 +25,16 @@ void cleanup() {
 }
 
 void die(const char *reason) {
+    
     printf("fatal: %s\npress any key to exit.", reason);
+    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
+
+    PadState pad;
+    padInitializeAny(&pad);
+
     while(appletMainLoop()) {
-        hidScanInput();
-        u64 kDown = hidKeysDown(CONTROLLER_P1_AUTO);
+        padUpdate(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
         if (kDown) {
             break;
         }
@@ -74,7 +80,7 @@ void printStatus() {
     putchar('\n');
     puts("Press X: toggle logging (sd:/ldn_mitm.log)");
     puts("Press Y: toggle ldn_mitm");
-    puts("Press B: exit");
+    puts("Press +: exit");
 }
 
 void reprint() {
@@ -132,32 +138,42 @@ int main(int argc, char* argv[]) {
     consoleInit(NULL);
 
     getLdnMitmConfig();
+    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
+
+    PadState pad;
+    padInitializeAny(&pad);
+
+    u32 kDownOld = 0;
 
     reprint();
     while(appletMainLoop()) {
-        hidScanInput();
-        u64 kDown = hidKeysDown(CONTROLLER_P1_AUTO);
+        padUpdate(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
 
-        if (kDown & KEY_B) {
+        if (kDown & HidNpadButton_Plus) {
             break;
         }
+        if(kDown != kDownOld)
+        {
+            if (kDown & HidNpadButton_StickL) {
+                Result rc = saveLogToFile();
+                if (R_SUCCEEDED(rc)) {
+                    puts("Export complete");
+                }
+            }
 
-        if (kDown & KEY_LSTICK) {
-            Result rc = saveLogToFile();
-            if (R_SUCCEEDED(rc)) {
-                puts("Export complete");
+            if (kDown & HidNpadButton_X) {
+                toggleLogging();
+                reprint();
+            }
+
+            if (kDown & HidNpadButton_Y) {
+                toggleEnabled();
+                reprint();
             }
         }
 
-        if (kDown & KEY_X) {
-            toggleLogging();
-            reprint();
-        }
-
-        if (kDown & KEY_Y) {
-            toggleEnabled();
-            reprint();
-        }
+        kDownOld = kDown;
 
         consoleUpdate(NULL);
     }

@@ -12,7 +12,7 @@ namespace ams::mitm::ldn {
 
         if (this->state_event == nullptr) {
             // ClearMode, inter_process
-            this->state_event = new os::SystemEvent(ams::os::EventClearMode_AutoClear, true);
+            this->state_event = new os::SystemEvent(::ams::os::EventClearMode_AutoClear, true);
         }
 
         R_TRY(lanDiscovery.initialize([&](){
@@ -155,7 +155,7 @@ namespace ams::mitm::ldn {
         return rc;
     }
 
-    Result ICommunicationService::Connect(ConnectNetworkData param, NetworkInfo &data) {
+    Result ICommunicationService::Connect(ConnectNetworkData param, const NetworkInfo &data) {
         LogFormat("ICommunicationService::connect");
         LogHex(&data, sizeof(NetworkInfo));
         LogHex(&param, sizeof(param));

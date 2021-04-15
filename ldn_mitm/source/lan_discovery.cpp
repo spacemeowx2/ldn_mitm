@@ -262,7 +262,7 @@ namespace ams::mitm::ldn {
         if (this->tcp) {
             this->tcp->close();
         }
-        fd = socket(AF_INET, SOCK_STREAM, 0);
+        fd = ::socket(AF_INET, SOCK_STREAM, 0);
         if (fd < 0) {
             return MAKERESULT(ModuleID, 6);
         }
@@ -298,7 +298,7 @@ namespace ams::mitm::ldn {
         if (this->udp) {
             this->udp->close();
         }
-        fd = socket(AF_INET, SOCK_DGRAM, 0);
+        fd = ::socket(AF_INET, SOCK_DGRAM, 0);
         if (fd < 0) {
             return MAKERESULT(ModuleID, 1);
         }
@@ -661,7 +661,7 @@ namespace ams::mitm::ldn {
         return 0;
     }
 
-    Result LANDiscovery::connect(NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion) {
+    Result LANDiscovery::connect(const NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion) {
         if (networkInfo->ldn.nodeCount == 0) {
             return MAKERESULT(ModuleID, 30);
         }

@@ -24,7 +24,7 @@
 #include "interfaces/icommunication.hpp"
 
 namespace ams::mitm::ldn {
-    class ICommunicationService final{
+    class ICommunicationService {
         private:
             LANDiscovery lanDiscovery;
             os::SystemEvent *state_event;
@@ -64,7 +64,7 @@ namespace ams::mitm::ldn {
             Result SetAdvertiseData(sf::InAutoSelectBuffer data);
             Result AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle);
             Result Scan(sf::Out<u32> count, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter);
-            Result Connect(ConnectNetworkData dat, NetworkInfo &data);
+            Result Connect(ConnectNetworkData dat, const NetworkInfo &data);
             Result GetNetworkInfoLatestUpdate(sf::Out<NetworkInfo> buffer, sf::OutArray<NodeLatestUpdate> pUpdates);
 
             /*nyi----------------------------------------------------------------------------*/

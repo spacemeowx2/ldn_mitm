@@ -161,7 +161,7 @@ namespace ams::mitm::ldn {
             Result setAdvertiseData(const u8 *data, uint16_t size);
             Result createNetwork(const SecurityConfig *securityConfig, const UserConfig *userConfig, const NetworkConfig *networkConfig);
             Result destroyNetwork();
-            Result connect(NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion);
+            Result connect(const NetworkInfo *networkInfo, UserConfig *userConfig, u16 localCommunicationVersion);
             Result disconnect();
             Result getNetworkInfo(NetworkInfo *pOutNetwork);
             Result getNetworkInfo(NetworkInfo *pOutNetwork, NodeLatestUpdate *pOutUpdates, int bufferCount);
