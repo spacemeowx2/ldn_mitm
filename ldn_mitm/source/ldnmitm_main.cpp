@@ -124,7 +124,6 @@ ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
 }
 int main(int argc, char **argv)
 {
-    SetLogging(true);
     LogFormat("main");
 
     constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
@@ -132,8 +131,6 @@ int main(int argc, char **argv)
     R_ABORT_UNLESS((g_server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(0, MitmServiceName)));
     LogFormat("registered");
     g_server_manager.RegisterServer(1, sm::ServiceName::Encode("ldnmitm"), 3);
-
-    SaveLogToFile();
 
     g_server_manager.LoopProcess();
 
