@@ -27,8 +27,10 @@ void cleanup() {
 void die(const char *reason) {
     
     printf("fatal: %s\npress any key to exit.", reason);
+    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
+
     PadState pad;
-    padInitializeDefault(&pad);
+    padInitializeAny(&pad);
 
     while(appletMainLoop()) {
         padUpdate(&pad);
@@ -78,7 +80,7 @@ void printStatus() {
     putchar('\n');
     puts("Press X: toggle logging (sd:/ldn_mitm.log)");
     puts("Press Y: toggle ldn_mitm");
-    puts("Press B: exit");
+    puts("Press +: exit");
 }
 
 void reprint() {
@@ -136,10 +138,10 @@ int main(int argc, char* argv[]) {
     consoleInit(NULL);
 
     getLdnMitmConfig();
-    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    padConfigureInput(8, HidNpadStyleSet_NpadStandard);
 
     PadState pad;
-    padInitializeDefault(&pad);
+    padInitializeAny(&pad);
 
     u32 kDownOld = 0;
 
@@ -148,7 +150,7 @@ int main(int argc, char* argv[]) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
 
-        if (kDown & HidNpadButton_B) {
+        if (kDown & HidNpadButton_Plus) {
             break;
         }
         if(kDown != kDownOld)

@@ -108,7 +108,7 @@ struct LdnMitmManagerOptions {
     static constexpr size_t MaxDomainObjects = 0x100;
 };
 
-class ServerManager final : public sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> {
+class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
             private:
                 virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
 };
@@ -130,7 +130,6 @@ int main(int argc, char **argv)
     //sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
     R_ABORT_UNLESS((g_server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(0, MitmServiceName)));
     LogFormat("registered");
-    g_server_manager.RegisterServer(1, sm::ServiceName::Encode("ldnmitm"), 3);
 
     g_server_manager.LoopProcess();
 
