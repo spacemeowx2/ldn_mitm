@@ -28,14 +28,20 @@ extern "C" {
     extern u32 __start__;
 
     u32 __nx_applet_type = AppletType_None;
+    u32 __nx_fs_num_sessions = 1;
 
     #define INNER_HEAP_SIZE 0x100000
     size_t nx_inner_heap_size = INNER_HEAP_SIZE;
     char   nx_inner_heap[INNER_HEAP_SIZE];
-    
+
     void __libnx_initheap(void);
     void __appInit(void);
     void __appExit(void);
+
+    /* Exception handling. */
+    alignas(16) u8 __nx_exception_stack[ams::os::MemoryPageSize];
+    u64 __nx_exception_stack_size = sizeof(__nx_exception_stack);
+    void __libnx_exception_handler(ThreadExceptionDump* ctx);
 }
 
 namespace ams {
@@ -82,13 +88,12 @@ void __appInit(void) {
         .num_bsd_sessions = 3,
         .bsd_service_type = BsdServiceType_User,
     };
-    sm::DoWithSession([&]() {
-        R_ASSERT(fsInitialize());
-        R_ASSERT(ipinfoInit());
-        R_ASSERT(socketInitialize(&socketInitConfig));
-    });
 
-    R_ASSERT(fsdevMountSdmc());
+    R_ABORT_UNLESS(sm::Initialize());
+    R_ABORT_UNLESS(fsInitialize());
+    R_ABORT_UNLESS(ipinfoInit());
+    R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
+    R_ABORT_UNLESS(fsdevMountSdmc());
 
     LogFormat("__appInit done");
 }
@@ -98,6 +103,10 @@ void __appExit(void) {
     socketExit();
     ipinfoExit();
     fsExit();
+}
+
+void __libnx_exception_handler(ThreadExceptionDump* ctx) {
+    ams::CrashHandler(ctx);
 }
 
 struct LdnMitmManagerOptions {
