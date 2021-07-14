@@ -8,7 +8,7 @@ git submodule update --init --recursive
 
 ## Version table
 
-Please try the GHA nightlies if you have updated beyond the supported AMS versions.
+Please try the [GHA nightlies](https://github.com/spacemeowx2/ldn_mitm/actions) if you have updated beyond the supported AMS versions.
 | ldn_mitm version | Atmosphère version |
 | :--------------: | :----------------: |
 | [1.8.0](https://github.com/spacemeowx2/ldn_mitm/releases/tag/v1.8.0)            | [0.19](https://github.com/Atmosphere-NX/Atmosphere/releases/tag/0.19.0)/[0.19.1](https://github.com/Atmosphere-NX/Atmosphere/releases/tag/0.19.1)               |
