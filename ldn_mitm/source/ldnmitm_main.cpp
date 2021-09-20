@@ -95,8 +95,6 @@ void __appInit(void) {
     R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
     R_ABORT_UNLESS(fsdevMountSdmc());
 
-    ams::CheckApiVersion();
-
     LogFormat("__appInit done");
 }
 
