@@ -13,138 +13,118 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+#include <stratosphere.hpp>
+
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <malloc.h>
 
 #include <switch.h>
-#include <stratosphere.hpp>
 
 #include "ldnmitm_service.hpp"
 
-extern "C" {
-    extern u32 __start__;
-
-    u32 __nx_applet_type = AppletType_None;
-    u32 __nx_fs_num_sessions = 1;
-
-    #define INNER_HEAP_SIZE 0x100000
-    size_t nx_inner_heap_size = INNER_HEAP_SIZE;
-    char   nx_inner_heap[INNER_HEAP_SIZE];
-
-    void __libnx_initheap(void);
-    void __appInit(void);
-    void __appExit(void);
-
-    /* Exception handling. */
-    alignas(16) u8 __nx_exception_stack[ams::os::MemoryPageSize];
-    u64 __nx_exception_stack_size = sizeof(__nx_exception_stack);
-    void __libnx_exception_handler(ThreadExceptionDump* ctx);
-}
-
 namespace ams {
-    ncm::ProgramId CurrentProgramId = { 0x4200000000000010ul };
 
-    namespace result {
-        bool CallFatalOnResultAssertion = false;
+    namespace {
+
+        constexpr size_t MallocBufferSize = 1_MB;
+        alignas(os::MemoryPageSize) constinit u8 g_malloc_buffer[MallocBufferSize];
+
     }
-}
-using namespace ams;
 
-void __libnx_initheap(void) {
-    void*  addr = nx_inner_heap;
-    size_t size = nx_inner_heap_size;
+    namespace mitm {
 
-    /* Newlib */
-    extern char* fake_heap_start;
-    extern char* fake_heap_end;
+        namespace {
 
-    fake_heap_start = (char*)addr;
-    fake_heap_end   = (char*)addr + size;
-}
+            struct LdnMitmManagerOptions {
+                static constexpr size_t PointerBufferSize = 0x1000;
+                static constexpr size_t MaxDomains = 0x10;
+                static constexpr size_t MaxDomainObjects = 0x100;
+            };
 
-void __appInit(void) {
-    svcSleepThread(10000000000L);
+            class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
+                        private:
+                            virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
+            };
 
-    hos::InitializeForStratosphere();
+            ServerManager g_server_manager;
 
+            Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
+                AMS_UNUSED(port_index);
+                /* Acknowledge the mitm session. */
+                std::shared_ptr<::Service> fsrv;
+                sm::MitmProcessInfo client_info;
+                server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
+                return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<mitm::ldn::ILdnMitMService, mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);
+            }
 
-    #define SOCK_BUFFERSIZE 0x1000
-    const SocketInitConfig socketInitConfig = {
-        .bsdsockets_version = 1,
+        }
 
-        .tcp_tx_buf_size = 0x800,
-        .tcp_rx_buf_size = 0x1000,
-        .tcp_tx_buf_max_size = 0x2000,
-        .tcp_rx_buf_max_size = 0x2000,
+    }
 
-        .udp_tx_buf_size = 0x2000,
-        .udp_rx_buf_size = 0x2000,
+    namespace init {
 
-        .sb_efficiency = 4,
+        void InitializeSystemModule() {
+            /* Sleep 10 seconds (seems unnecessary). */
+            os::SleepThread(TimeSpan::FromSeconds(10));
 
-        .num_bsd_sessions = 3,
-        .bsd_service_type = BsdServiceType_User,
-    };
+            /* Initialize our connection to sm. */
+            R_ABORT_UNLESS(sm::Initialize());
 
-    R_ABORT_UNLESS(sm::Initialize());
-    R_ABORT_UNLESS(fsInitialize());
-    R_ABORT_UNLESS(ipinfoInit());
-    R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
-    R_ABORT_UNLESS(fsdevMountSdmc());
+            /* Initialize fs. */
+            fs::InitializeForSystem();
+            fs::SetEnabledAutoAbort(false);
 
-    LogFormat("__appInit done");
-}
+            /* Initialize other services. */
+            const SocketInitConfig socketInitConfig = {
+                .bsdsockets_version = 1,
 
-void __appExit(void) {
-    fsdevUnmountAll();
-    socketExit();
-    ipinfoExit();
-    fsExit();
-}
+                .tcp_tx_buf_size = 0x800,
+                .tcp_rx_buf_size = 0x1000,
+                .tcp_tx_buf_max_size = 0x2000,
+                .tcp_rx_buf_max_size = 0x2000,
 
-void __libnx_exception_handler(ThreadExceptionDump* ctx) {
-    ams::CrashHandler(ctx);
-}
+                .udp_tx_buf_size = 0x2000,
+                .udp_rx_buf_size = 0x2000,
 
-struct LdnMitmManagerOptions {
-    static constexpr size_t PointerBufferSize = 0x1000;
-    static constexpr size_t MaxDomains = 0x10;
-    static constexpr size_t MaxDomainObjects = 0x100;
-};
+                .sb_efficiency = 4,
 
-class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
-            private:
-                virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
-};
+                .num_bsd_sessions = 3,
+                .bsd_service_type = BsdServiceType_User,
+            };
 
-ServerManager g_server_manager;
+            R_ABORT_UNLESS(ipinfoInit());
+            R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
+            R_ABORT_UNLESS(fsdevMountSdmc());
 
-ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
-		AMS_UNUSED(port_index);
-        /* Acknowledge the mitm session. */
-        std::shared_ptr<::Service> fsrv;
-        sm::MitmProcessInfo client_info;
-        server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
-        return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);   
-}
-int main(int argc, char **argv)
-{
-	AMS_UNUSED(argc);
-	AMS_UNUSED(argv);
+            LogFormat("InitializeSystemModule done");
+        }
 
-    LogFormat("main");
+        void FinalizeSystemModule() { /* ... */ }
 
-    constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
-    //sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
-    R_ABORT_UNLESS((g_server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(0, MitmServiceName)));
-    LogFormat("registered");
+        void Startup() {
+            /* Initialize the global malloc allocator. */
+            init::InitializeAllocator(g_malloc_buffer, sizeof(g_malloc_buffer));
+        }
 
-    g_server_manager.LoopProcess();
+    }
 
-    
+    void NORETURN Exit(int rc) {
+        AMS_UNUSED(rc);
+        AMS_ABORT("Exit called by immortal process");
+    }
 
-    return 0;
+    void Main() {
+        LogFormat("main");
+
+        constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
+        //sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
+        R_ABORT_UNLESS((mitm::g_server_manager.RegisterMitmServer<mitm::ldn::LdnMitMService>(0, MitmServiceName)));
+        LogFormat("registered");
+
+        mitm::g_server_manager.LoopProcess();
+    }
+
 }
