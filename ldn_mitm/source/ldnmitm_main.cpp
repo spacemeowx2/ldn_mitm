@@ -123,6 +123,7 @@ class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOpti
 ServerManager g_server_manager;
 
 ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
+		AMS_UNUSED(port_index);
         /* Acknowledge the mitm session. */
         std::shared_ptr<::Service> fsrv;
         sm::MitmProcessInfo client_info;
@@ -131,6 +132,9 @@ ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
 }
 int main(int argc, char **argv)
 {
+	AMS_UNUSED(argc);
+	AMS_UNUSED(argv);
+
     LogFormat("main");
 
     constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");

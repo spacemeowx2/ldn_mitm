@@ -20,6 +20,7 @@ namespace ams::mitm::ldn {
             return -1;
         }
         return this->socket->recvPacket([&](LANPacketType type, const void *data, size_t size, ReplyFunc reply) -> int {
+			AMS_UNUSED(reply);
             if (type == LANPacketType::Connect) {
                 LogFormat("on connect");
                 NodeInfo *info = (decltype(info))data;
@@ -88,6 +89,7 @@ namespace ams::mitm::ldn {
         const auto state = this->discovery->getState();
         if (state == CommState::Station || state == CommState::StationConnected) {
             return this->recvPacket([&](LANPacketType type, const void *data, size_t size, ReplyFunc reply) -> int {
+				AMS_UNUSED(reply);
                 if (type == LANPacketType::SyncNetwork) {
                     LogFormat("SyncNetwork");
                     NetworkInfo *info = (decltype(info))data;

@@ -139,11 +139,12 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationService::AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle) {
-        handle.SetValue(this->state_event->GetReadableHandle());
+        handle.SetValue(this->state_event->GetReadableHandle(),false);
         return ResultSuccess();
     }
 
     Result ICommunicationService::Scan(sf::Out<u32> outCount, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
+		AMS_UNUSED(channel);
         Result rc = 0;
         u16 count = buffer.GetSize();
 
@@ -172,6 +173,7 @@ namespace ams::mitm::ldn {
 
     /*nyi*/
     Result ICommunicationService::SetStationAcceptPolicy(u8 policy) {
+		AMS_UNUSED(policy);
         return 0;
     }
 
