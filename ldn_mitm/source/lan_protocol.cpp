@@ -84,9 +84,9 @@ int LanSocket::recvPartPacket(u8 *buffer, size_t bufLen, struct sockaddr_in *add
         return 0;
     }
 
-    const auto total = HeaderSize + header->length;
-    if (total > BufferSize) {
-        LogFormat("recvPartPacket total > BufferSize");
+    const size_t total = HeaderSize + header->length;
+    if (total > bufLen) {
+        LogFormat("recvPartPacket total > bufLen");
         this->resetRecvSize();
         return 0;
     }
@@ -180,6 +180,8 @@ void LanSocket::prepareHeader(LANPacketHeader &header, LANPacketType type) {
 }
 
 ssize_t TcpLanSocketBase::recvfrom(void *buf, size_t len, struct sockaddr_in *addr) {
+    (void)addr;
+
     auto rc = ::recvfrom(this->fd, buf, len, 0, nullptr, 0);
     if (rc == 0) {
         return -0xFD23;
@@ -187,6 +189,8 @@ ssize_t TcpLanSocketBase::recvfrom(void *buf, size_t len, struct sockaddr_in *ad
     return rc;
 }
 int TcpLanSocketBase::sendto(const void *buf, size_t len, struct sockaddr_in *addr) {
+    (void)addr;
+
     return ::sendto(this->fd, buf, len, 0, nullptr, 0);
 }
 
