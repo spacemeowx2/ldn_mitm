@@ -43,9 +43,6 @@ namespace ams {
         void InitializeSystemModule() {
             svcSleepThread(10000000000L);
 
-            hos::InitializeForStratosphere();
-
-
             #define SOCK_BUFFERSIZE 0x1000
             const SocketInitConfig socketInitConfig = {
                 .bsdsockets_version = 1,
