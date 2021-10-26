@@ -38,35 +38,74 @@ namespace ams {
     namespace result {
         bool CallFatalOnResultAssertion = false;
     }
-}
-using namespace ams;
 
-struct LdnMitmManagerOptions {
-    static constexpr size_t PointerBufferSize = 0x1000;
-    static constexpr size_t MaxDomains = 0x10;
-    static constexpr size_t MaxDomainObjects = 0x100;
-    static constexpr bool CanDeferInvokeRequest = false;
-    static constexpr bool CanManageMitmServers  = true;
-};
+    namespace init {
+        void InitializeSystemModule() {
+            svcSleepThread(10000000000L);
 
-class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
-    private:
-        virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
-};
+            hos::InitializeForStratosphere();
 
-ServerManager g_server_manager;
 
-ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
-    (void)port_index;
+            #define SOCK_BUFFERSIZE 0x1000
+            const SocketInitConfig socketInitConfig = {
+                .bsdsockets_version = 1,
 
-    /* Acknowledge the mitm session. */
-    std::shared_ptr<::Service> fsrv;
-    sm::MitmProcessInfo client_info;
-    server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
-    return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);   
-}
+                .tcp_tx_buf_size = 0x800,
+                .tcp_rx_buf_size = 0x1000,
+                .tcp_tx_buf_max_size = 0x2000,
+                .tcp_rx_buf_max_size = 0x2000,
 
-namespace ams {
+                .udp_tx_buf_size = 0x2000,
+                .udp_rx_buf_size = 0x2000,
+
+                .sb_efficiency = 4,
+
+                .num_bsd_sessions = 3,
+                .bsd_service_type = BsdServiceType_User,
+            };
+
+            R_ABORT_UNLESS(sm::Initialize());
+            R_ABORT_UNLESS(fsInitialize());
+            R_ABORT_UNLESS(ipinfoInit());
+            R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
+            R_ABORT_UNLESS(fsdevMountSdmc());
+
+            LogFormat("__appInit done");
+        }
+
+        void FinalizeSystemModule() {
+            fsdevUnmountAll();
+            socketExit();
+            ipinfoExit();
+            fsExit();
+        }
+    }
+
+    struct LdnMitmManagerOptions {
+        static constexpr size_t PointerBufferSize = 0x1000;
+        static constexpr size_t MaxDomains = 0x10;
+        static constexpr size_t MaxDomainObjects = 0x100;
+        static constexpr bool CanDeferInvokeRequest = false;
+        static constexpr bool CanManageMitmServers  = true;
+    };
+
+    class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
+        private:
+            virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
+    };
+
+    ServerManager g_server_manager;
+
+    ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
+        (void)port_index;
+
+        /* Acknowledge the mitm session. */
+        std::shared_ptr<::Service> fsrv;
+        sm::MitmProcessInfo client_info;
+        server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
+        return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);   
+    }
+
     void Main() {
         LogFormat("main");
 
