@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <cstring>
 #include <unistd.h>
+#include <stratosphere.hpp>
 
 #define POLL_UNKNOWN (~(POLLIN | POLLPRI | POLLOUT))
 // Only used when debuging
@@ -65,6 +66,7 @@ void LanSocket::resetRecvSize() {
 }
 
 int LanSocket::recvPartPacket(u8 *buffer, size_t bufLen, struct sockaddr_in *addr) {
+	AMS_UNUSED(bufLen);
     constexpr int HeaderSize = sizeof(LANPacketHeader);
     ssize_t len = this->recvfrom((void *)(this->buffer + this->recvSize), sizeof(this->buffer) - this->recvSize, addr);
     if (len <= 0) {
@@ -180,8 +182,7 @@ void LanSocket::prepareHeader(LANPacketHeader &header, LANPacketType type) {
 }
 
 ssize_t TcpLanSocketBase::recvfrom(void *buf, size_t len, struct sockaddr_in *addr) {
-    (void)addr;
-
+	AMS_UNUSED(addr);
     auto rc = ::recvfrom(this->fd, buf, len, 0, nullptr, 0);
     if (rc == 0) {
         return -0xFD23;
@@ -189,8 +190,7 @@ ssize_t TcpLanSocketBase::recvfrom(void *buf, size_t len, struct sockaddr_in *ad
     return rc;
 }
 int TcpLanSocketBase::sendto(const void *buf, size_t len, struct sockaddr_in *addr) {
-    (void)addr;
-
+	AMS_UNUSED(addr);
     return ::sendto(this->fd, buf, len, 0, nullptr, 0);
 }
 

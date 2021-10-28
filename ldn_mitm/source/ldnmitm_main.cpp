@@ -13,94 +13,144 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+#include <stratosphere.hpp>
+
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <malloc.h>
 
 #include <switch.h>
-#include <stratosphere.hpp>
+
+extern "C" {
+
+#include <switch/services/bsd.h>
+
+}
 
 #include "ldnmitm_service.hpp"
 
-extern "C" {
-    extern u32 __start__;
-
-    #define INNER_HEAP_SIZE 0x100000
-    size_t nx_inner_heap_size = INNER_HEAP_SIZE;
-    char   nx_inner_heap[INNER_HEAP_SIZE];
-}
-
 namespace ams {
-    ncm::ProgramId CurrentProgramId = { 0x4200000000000010ul };
 
-    namespace result {
-        bool CallFatalOnResultAssertion = false;
+    namespace {
+
+        constexpr size_t MallocBufferSize = 1_MB;
+        alignas(os::MemoryPageSize) constinit u8 g_malloc_buffer[MallocBufferSize];
+
+        consteval size_t GetLibnxBsdTransferMemorySize(const ::SocketInitConfig *config) {
+            const u32 tcp_tx_buf_max_size = config->tcp_tx_buf_max_size != 0 ? config->tcp_tx_buf_max_size : config->tcp_tx_buf_size;
+            const u32 tcp_rx_buf_max_size = config->tcp_rx_buf_max_size != 0 ? config->tcp_rx_buf_max_size : config->tcp_rx_buf_size;
+            const u32 sum = tcp_tx_buf_max_size + tcp_rx_buf_max_size + config->udp_tx_buf_size + config->udp_rx_buf_size;
+
+            return config->sb_efficiency * util::AlignUp(sum, os::MemoryPageSize);
+        }
+
+        constexpr const ::SocketInitConfig LibnxSocketInitConfig = {
+            .bsdsockets_version = 1,
+
+            .tcp_tx_buf_size = 0x800,
+            .tcp_rx_buf_size = 0x1000,
+            .tcp_tx_buf_max_size = 0x2000,
+            .tcp_rx_buf_max_size = 0x2000,
+
+            .udp_tx_buf_size = 0x2000,
+            .udp_rx_buf_size = 0x2000,
+
+            .sb_efficiency = 4,
+
+            .num_bsd_sessions = 3,
+            .bsd_service_type = BsdServiceType_User,
+        };
+
+        alignas(os::MemoryPageSize) constinit u8 g_socket_tmem_buffer[GetLibnxBsdTransferMemorySize(std::addressof(LibnxSocketInitConfig))];
+
+        constexpr const ::BsdInitConfig LibnxBsdInitConfig = {
+            .version             = LibnxSocketInitConfig.bsdsockets_version,
+
+            .tmem_buffer         = g_socket_tmem_buffer,
+            .tmem_buffer_size    = sizeof(g_socket_tmem_buffer),
+
+            .tcp_tx_buf_size     = LibnxSocketInitConfig.tcp_tx_buf_size,
+            .tcp_rx_buf_size     = LibnxSocketInitConfig.tcp_rx_buf_size,
+            .tcp_tx_buf_max_size = LibnxSocketInitConfig.tcp_tx_buf_max_size,
+            .tcp_rx_buf_max_size = LibnxSocketInitConfig.tcp_rx_buf_max_size,
+
+            .udp_tx_buf_size     = LibnxSocketInitConfig.udp_tx_buf_size,
+            .udp_rx_buf_size     = LibnxSocketInitConfig.udp_rx_buf_size,
+
+            .sb_efficiency       = LibnxSocketInitConfig.sb_efficiency,
+        };
+
+    }
+
+    namespace mitm {
+
+        namespace {
+
+            struct LdnMitmManagerOptions {
+                static constexpr size_t PointerBufferSize = 0x1000;
+                static constexpr size_t MaxDomains = 0x10;
+                static constexpr size_t MaxDomainObjects = 0x100;
+                static constexpr bool   CanDeferInvokeRequest = false;
+                static constexpr bool   CanManageMitmServers  = true;
+            };
+
+            class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
+                        private:
+                            virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
+            };
+
+            ServerManager g_server_manager;
+
+            Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
+                AMS_UNUSED(port_index);
+                /* Acknowledge the mitm session. */
+                std::shared_ptr<::Service> fsrv;
+                sm::MitmProcessInfo client_info;
+                server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
+                return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<mitm::ldn::ILdnMitMService, mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);
+            }
+
+        }
+
     }
 
     namespace init {
+
         void InitializeSystemModule() {
-            svcSleepThread(10000000000L);
+            /* Sleep 10 seconds (seems unnecessary). */
+            os::SleepThread(TimeSpan::FromSeconds(10));
 
-            #define SOCK_BUFFERSIZE 0x1000
-            const SocketInitConfig socketInitConfig = {
-                .bsdsockets_version = 1,
-
-                .tcp_tx_buf_size = 0x800,
-                .tcp_rx_buf_size = 0x1000,
-                .tcp_tx_buf_max_size = 0x2000,
-                .tcp_rx_buf_max_size = 0x2000,
-
-                .udp_tx_buf_size = 0x2000,
-                .udp_rx_buf_size = 0x2000,
-
-                .sb_efficiency = 4,
-
-                .num_bsd_sessions = 3,
-                .bsd_service_type = BsdServiceType_User,
-            };
-
+            /* Initialize our connection to sm. */
             R_ABORT_UNLESS(sm::Initialize());
-            R_ABORT_UNLESS(fsInitialize());
+
+            /* Initialize fs. */
+            fs::InitializeForSystem();
+            fs::SetEnabledAutoAbort(false);
+
+            /* Initialize other services. */
+
             R_ABORT_UNLESS(ipinfoInit());
-            R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
+            R_ABORT_UNLESS(bsdInitialize(&LibnxBsdInitConfig, LibnxSocketInitConfig.num_bsd_sessions, LibnxSocketInitConfig.bsd_service_type));
+            R_ABORT_UNLESS(socketInitialize(&LibnxSocketInitConfig));
             R_ABORT_UNLESS(fsdevMountSdmc());
 
-            LogFormat("__appInit done");
+            LogFormat("InitializeSystemModule done");
         }
 
-        void FinalizeSystemModule() {
-            fsdevUnmountAll();
-            socketExit();
-            ipinfoExit();
-            fsExit();
+        void FinalizeSystemModule() { /* ... */ }
+
+        void Startup() {
+            /* Initialize the global malloc allocator. */
+            init::InitializeAllocator(g_malloc_buffer, sizeof(g_malloc_buffer));
         }
+
     }
 
-    struct LdnMitmManagerOptions {
-        static constexpr size_t PointerBufferSize = 0x1000;
-        static constexpr size_t MaxDomains = 0x10;
-        static constexpr size_t MaxDomainObjects = 0x100;
-        static constexpr bool CanDeferInvokeRequest = false;
-        static constexpr bool CanManageMitmServers  = true;
-    };
-
-    class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
-        private:
-            virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
-    };
-
-    ServerManager g_server_manager;
-
-    ams::Result ServerManager::OnNeedsToAccept(int port_index, Server *server) {
-        (void)port_index;
-
-        /* Acknowledge the mitm session. */
-        std::shared_ptr<::Service> fsrv;
-        sm::MitmProcessInfo client_info;
-        server->AcknowledgeMitmSession(std::addressof(fsrv), std::addressof(client_info));
-        return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<ams::mitm::ldn::ILdnMitMService, ams::mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);   
+    void NORETURN Exit(int rc) {
+        AMS_UNUSED(rc);
+        AMS_ABORT("Exit called by immortal process");
     }
 
     void Main() {
@@ -108,9 +158,10 @@ namespace ams {
 
         constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
         //sf::hipc::ServerManager<2, LdnMitmManagerOptions, 3> server_manager;
-        R_ABORT_UNLESS((g_server_manager.RegisterMitmServer<ams::mitm::ldn::LdnMitMService>(0, MitmServiceName)));
+        R_ABORT_UNLESS((mitm::g_server_manager.RegisterMitmServer<mitm::ldn::LdnMitMService>(0, MitmServiceName)));
         LogFormat("registered");
 
-        g_server_manager.LoopProcess();
+        mitm::g_server_manager.LoopProcess();
     }
+
 }

@@ -144,8 +144,7 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationService::Scan(sf::Out<u32> outCount, sf::OutAutoSelectArray<NetworkInfo> buffer, u16 channel, ScanFilter filter) {
-        (void)channel;
-
+		AMS_UNUSED(channel);
         Result rc = 0;
         u16 count = buffer.GetSize();
 
@@ -174,8 +173,7 @@ namespace ams::mitm::ldn {
 
     /*nyi*/
     Result ICommunicationService::SetStationAcceptPolicy(u8 policy) {
-        (void)policy;
-
+		AMS_UNUSED(policy);
         return 0;
     }
 
