@@ -152,7 +152,7 @@ namespace ams::mitm::ldn {
             Result getFakeMac(MacAddress *mac);
             Result getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion);
             LanEventFunc lanEvent;
-            std::unique_ptr<u8[StackSize]> stack;
+            std::unique_ptr<u8[]> stack;
         public:
             Result initialize(LanEventFunc lanEvent = EmptyFunc, bool listening = true);
             Result finalize();
@@ -178,6 +178,7 @@ namespace ams::mitm::ldn {
                 networkInfo({}), listenPort(port),
                 state(CommState::None)
             {
+                this->stack = std::make_unique<u8[]>(os::ThreadStackAlignment + StackSize);
                 LogFormat("LANDiscovery");
             };
             ~LANDiscovery();

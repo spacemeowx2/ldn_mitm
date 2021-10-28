@@ -23,6 +23,12 @@
 
 #include <switch.h>
 
+extern "C" {
+
+#include <switch/services/bsd.h>
+
+}
+
 #include "ldnmitm_service.hpp"
 
 namespace ams {
@@ -31,6 +37,50 @@ namespace ams {
 
         constexpr size_t MallocBufferSize = 1_MB;
         alignas(os::MemoryPageSize) constinit u8 g_malloc_buffer[MallocBufferSize];
+
+        consteval size_t GetLibnxBsdTransferMemorySize(const ::SocketInitConfig *config) {
+            const u32 tcp_tx_buf_max_size = config->tcp_tx_buf_max_size != 0 ? config->tcp_tx_buf_max_size : config->tcp_tx_buf_size;
+            const u32 tcp_rx_buf_max_size = config->tcp_rx_buf_max_size != 0 ? config->tcp_rx_buf_max_size : config->tcp_rx_buf_size;
+            const u32 sum = tcp_tx_buf_max_size + tcp_rx_buf_max_size + config->udp_tx_buf_size + config->udp_rx_buf_size;
+
+            return config->sb_efficiency * util::AlignUp(sum, os::MemoryPageSize);
+        }
+
+        constexpr const ::SocketInitConfig LibnxSocketInitConfig = {
+            .bsdsockets_version = 1,
+
+            .tcp_tx_buf_size = 0x800,
+            .tcp_rx_buf_size = 0x1000,
+            .tcp_tx_buf_max_size = 0x2000,
+            .tcp_rx_buf_max_size = 0x2000,
+
+            .udp_tx_buf_size = 0x2000,
+            .udp_rx_buf_size = 0x2000,
+
+            .sb_efficiency = 4,
+
+            .num_bsd_sessions = 3,
+            .bsd_service_type = BsdServiceType_User,
+        };
+
+        alignas(os::MemoryPageSize) constinit u8 g_socket_tmem_buffer[GetLibnxBsdTransferMemorySize(std::addressof(LibnxSocketInitConfig))];
+
+        constexpr const ::BsdInitConfig LibnxBsdInitConfig = {
+            .version             = LibnxSocketInitConfig.bsdsockets_version,
+
+            .tmem_buffer         = g_socket_tmem_buffer,
+            .tmem_buffer_size    = sizeof(g_socket_tmem_buffer),
+
+            .tcp_tx_buf_size     = LibnxSocketInitConfig.tcp_tx_buf_size,
+            .tcp_rx_buf_size     = LibnxSocketInitConfig.tcp_rx_buf_size,
+            .tcp_tx_buf_max_size = LibnxSocketInitConfig.tcp_tx_buf_max_size,
+            .tcp_rx_buf_max_size = LibnxSocketInitConfig.tcp_rx_buf_max_size,
+
+            .udp_tx_buf_size     = LibnxSocketInitConfig.udp_tx_buf_size,
+            .udp_rx_buf_size     = LibnxSocketInitConfig.udp_rx_buf_size,
+
+            .sb_efficiency       = LibnxSocketInitConfig.sb_efficiency,
+        };
 
     }
 
@@ -42,6 +92,8 @@ namespace ams {
                 static constexpr size_t PointerBufferSize = 0x1000;
                 static constexpr size_t MaxDomains = 0x10;
                 static constexpr size_t MaxDomainObjects = 0x100;
+                static constexpr bool   CanDeferInvokeRequest = false;
+                static constexpr bool   CanManageMitmServers  = true;
             };
 
             class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
@@ -78,25 +130,10 @@ namespace ams {
             fs::SetEnabledAutoAbort(false);
 
             /* Initialize other services. */
-            const SocketInitConfig socketInitConfig = {
-                .bsdsockets_version = 1,
-
-                .tcp_tx_buf_size = 0x800,
-                .tcp_rx_buf_size = 0x1000,
-                .tcp_tx_buf_max_size = 0x2000,
-                .tcp_rx_buf_max_size = 0x2000,
-
-                .udp_tx_buf_size = 0x2000,
-                .udp_rx_buf_size = 0x2000,
-
-                .sb_efficiency = 4,
-
-                .num_bsd_sessions = 3,
-                .bsd_service_type = BsdServiceType_User,
-            };
 
             R_ABORT_UNLESS(ipinfoInit());
-            R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
+            R_ABORT_UNLESS(bsdInitialize(&LibnxBsdInitConfig, LibnxSocketInitConfig.num_bsd_sessions, LibnxSocketInitConfig.bsd_service_type));
+            R_ABORT_UNLESS(socketInitialize(&LibnxSocketInitConfig));
             R_ABORT_UNLESS(fsdevMountSdmc());
 
             LogFormat("InitializeSystemModule done");

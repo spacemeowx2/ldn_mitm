@@ -281,7 +281,7 @@ namespace ams::mitm::ldn {
                 return MAKERESULT(ModuleID, 8);
             }
         }
-        rc = setSocketOpts(fd); 
+        rc = setSocketOpts(fd);
         if (R_FAILED(rc)) {
             return rc;
         }
@@ -571,7 +571,7 @@ namespace ams::mitm::ldn {
         if (R_FAILED(rc)) {
             return rc;
         }
-        
+
         this->setState(CommState::AccessPointCreated);
 
         this->initNodeStateChange();
@@ -753,7 +753,7 @@ namespace ams::mitm::ldn {
             return rc;
         }
 
-        rc = os::CreateThread(&this->workerThread, &Worker, this, stack.get(), StackSize, 0x15, 2);
+        rc = os::CreateThread(&this->workerThread, &Worker, this, reinterpret_cast<void *>(util::AlignUp(reinterpret_cast<uintptr_t>(stack.get()), os::ThreadStackAlignment)), StackSize, 0x15, 2);
         if (R_FAILED(rc)) {
             LogFormat("LANDiscovery Failed to threadCreate: %x", rc);
             return 0xF601;
