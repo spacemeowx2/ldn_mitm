@@ -139,7 +139,7 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationService::AttachStateChangeEvent(sf::Out<sf::CopyHandle> handle) {
-        handle.SetValue(this->state_event->GetReadableHandle(), true);
+        handle.SetValue(this->state_event->GetReadableHandle(), false);
         return ResultSuccess();
     }
 
