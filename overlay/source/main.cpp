@@ -1,28 +1,82 @@
 #define TESLA_INIT_IMPL // If you have more than one file using the tesla header, only define this in the main one
 #include <tesla.hpp>    // The Tesla Header
+#include "ldn.h"
 
+enum class State {
+    Uninit,
+    Error,
+    Loaded,
+};
+
+Service g_ldnSrv;
+LdnMitmConfigService g_ldnConfig;
+State g_state;
+char g_version[32];
+
+class DisabledToggleListItem : public tsl::elm::ToggleListItem {
+public:
+    DisabledToggleListItem() : ToggleListItem("Disabled", false) {
+        u32 enabled;
+        Result rc;
+
+        rc = ldnMitmGetEnabled(&g_ldnConfig, &enabled);
+        if (R_FAILED(rc)) {
+            g_state = State::Error;
+        }
+
+        this->setState(!enabled);
+
+        this->setStateChangedListener([](bool enabled) {
+            Result rc = ldnMitmSetEnabled(&g_ldnConfig, !enabled);
+            if (R_FAILED(rc)) {
+                g_state = State::Error;
+            }
+        });
+    }
+};
+
+class LoggingToggleListItem : public tsl::elm::ToggleListItem {
+public:
+    LoggingToggleListItem() : ToggleListItem("Logging", false) {
+        u32 enabled;
+        Result rc;
+
+        rc = ldnMitmGetLogging(&g_ldnConfig, &enabled);
+        if (R_FAILED(rc)) {
+            g_state = State::Error;
+        }
+
+        this->setState(enabled);
+
+        this->setStateChangedListener([](bool enabled) {
+            Result rc = ldnMitmSetLogging(&g_ldnConfig, enabled);
+            if (R_FAILED(rc)) {
+                g_state = State::Error;
+            }
+        });
+    }
+};
 
 class MainGui : public tsl::Gui {
 public:
     MainGui() { }
 
-    // Called when this Gui gets loaded to create the UI
-    // Allocate all elements on the heap. libtesla will make sure to clean them up when not needed anymore
     virtual tsl::elm::Element* createUI() override {
-        // A OverlayFrame is the base element every overlay consists of. This will draw the default Title and Subtitle.
-        // If you need more information in the header or want to change it's look, use a HeaderOverlayFrame.
-        auto frame = new tsl::elm::OverlayFrame("Tesla Example", "v1.3.1");
+        auto frame = new tsl::elm::OverlayFrame("ldn_mitm", g_version);
 
-        // A list that can contain sub elements and handles scrolling
         auto list = new tsl::elm::List();
 
-        // Create and add a new list item to the list
-        list->addItem(new tsl::elm::ListItem("Default List Item"));
+        if (g_state == State::Error) {
+            list->addItem(new tsl::elm::ListItem("ldn_mitm is not loaded."));
+        } else if (g_state == State::Uninit) {
+            list->addItem(new tsl::elm::ListItem("wrong state"));
+        } else {
+            list->addItem(new DisabledToggleListItem());
+            list->addItem(new LoggingToggleListItem());
+        }
 
-        // Add the list to the frame for it to be drawn
         frame->setContent(list);
         
-        // Return the frame to have it become the top level element of this Gui
         return frame;
     }
 
@@ -39,9 +93,36 @@ public:
 
 class Overlay : public tsl::Overlay {
 public:
-                                             // libtesla already initialized fs, hid, pl, pmdmnt, hid:sys and set:sys
-    virtual void initServices() override {}  // Called at the start to initialize all services necessary for this Overlay
-    virtual void exitServices() override {}  // Callet at the end to clean up all services previously initialized
+    virtual void initServices() override {
+        g_state = State::Uninit;
+        tsl::hlp::doWithSmSession([&] {
+            Result rc;
+
+            rc = smGetService(&g_ldnSrv, "ldn:u");
+            if (R_FAILED(rc)) {
+                g_state = State::Error;
+                return;
+            }
+
+            rc = ldnMitmGetConfigFromService(&g_ldnSrv, &g_ldnConfig);
+            if (R_FAILED(rc)) {
+                g_state = State::Error;
+                return;
+            }
+
+            rc = ldnMitmGetVersion(&g_ldnConfig, g_version);
+            if (R_FAILED(rc)) {
+                strcpy(g_version, "Error");
+            }
+
+            g_state = State::Loaded;
+        });
+
+    }
+    virtual void exitServices() override {
+        serviceClose(&g_ldnConfig.s);
+        serviceClose(&g_ldnSrv);
+    }
 
     virtual void onShow() override {}    // Called before overlay wants to change from invisible to visible state
     virtual void onHide() override {}    // Called before overlay wants to change from visible to invisible state

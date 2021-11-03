@@ -37,8 +37,11 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:=	ldn_mitm Overlay
-APP_VERSION :=	1.0.0
+TARGET_VERSION := $(shell git describe --tags --dirty)
+VERSION_DEFINES	:= -DGITDESCVER="\"${TARGET_VERSION}\""
+
+APP_TITLE	:=	ldn_mitm
+APP_VERSION :=	${TARGET_VERSION}
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
@@ -54,7 +57,7 @@ NO_ICON		:=  1
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
-			$(ARCH) $(DEFINES)
+			$(ARCH) $(DEFINES) $(VERSION_DEFINES)
 
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
