@@ -13,9 +13,9 @@ LdnMitmConfigService g_ldnConfig;
 State g_state;
 char g_version[32];
 
-class DisabledToggleListItem : public tsl::elm::ToggleListItem {
+class EnabledToggleListItem : public tsl::elm::ToggleListItem {
 public:
-    DisabledToggleListItem() : ToggleListItem("Disabled", false) {
+    EnabledToggleListItem() : ToggleListItem("Enabled", false) {
         u32 enabled;
         Result rc;
 
@@ -24,10 +24,10 @@ public:
             g_state = State::Error;
         }
 
-        this->setState(!enabled);
+        this->setState(enabled);
 
         this->setStateChangedListener([](bool enabled) {
-            Result rc = ldnMitmSetEnabled(&g_ldnConfig, !enabled);
+            Result rc = ldnMitmSetEnabled(&g_ldnConfig, enabled);
             if (R_FAILED(rc)) {
                 g_state = State::Error;
             }
@@ -71,7 +71,7 @@ public:
         } else if (g_state == State::Uninit) {
             list->addItem(new tsl::elm::ListItem("wrong state"));
         } else {
-            list->addItem(new DisabledToggleListItem());
+            list->addItem(new EnabledToggleListItem());
             list->addItem(new LoggingToggleListItem());
         }
 
