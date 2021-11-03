@@ -1,4 +1,7 @@
-SUBFOLDERS := Atmosphere-libs/libstratosphere ldn_mitm ldnmitm_config overlay
+KIPS := ldn_mitm
+NROS := ldnmitm_config
+
+SUBFOLDERS := Atmosphere-libs/libstratosphere $(KIPS) $(NROS) overlay
 
 TOPTARGETS := all clean
 
