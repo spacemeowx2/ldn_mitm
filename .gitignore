@@ -73,3 +73,7 @@ dkms.conf
 make.bat
 *.log
 .vscode
+*.zip
+
+# overlay
+*.ovl
