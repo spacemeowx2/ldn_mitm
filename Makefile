@@ -20,8 +20,10 @@ $(KIPS): Atmosphere-libs/libstratosphere
 
 #---------------------------------------------------------------------------------
 PACK: $(SUBFOLDERS)
+	@ mkdir -p $(NRO_DIR)
 	@ mkdir -p $(TITLE_DIR)/flags
 	@ mkdir -p $(OVERLAY_DIR)
+	@ cp ldnmitm_config/ldnmitm_config.nro $(NRO_DIR)/ldnmitm_config.nro
 	@ cp ldn_mitm/ldn_mitm.nsp $(TITLE_DIR)/exefs.nsp
 	@ cp overlay/overlay.ovl $(OVERLAY_DIR)/ldnmitm_config.ovl
 	@ cp ldn_mitm/res/toolbox.json $(TITLE_DIR)/toolbox.json
