@@ -36,4 +36,4 @@
         AMS_SF_METHOD_INFO(C, H, 401, Result, Finalize, 			   (), 																																			())									\
         AMS_SF_METHOD_INFO(C, H, 402, Result, InitializeSystem2, 		   (u64 unk, const ams::sf::ClientProcessId &client_process_id), 																					(unk, client_process_id))
 
-    AMS_SF_DEFINE_INTERFACE(ams::mitm::ldn, ICommunicationInterface, AMS_LDN_ICOMMUNICATION)
+    AMS_SF_DEFINE_INTERFACE(ams::mitm::ldn, ICommunicationInterface, AMS_LDN_ICOMMUNICATION, 0x85280DC3)
