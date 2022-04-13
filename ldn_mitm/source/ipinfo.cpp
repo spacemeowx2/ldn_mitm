@@ -52,13 +52,17 @@ Result ipinfoGetIpConfig(u32* address) {
 }
 
 Result ipinfoGetIpConfig(u32* address, u32* netmask) {
-    struct {
+  struct {
         u8 _unk;
         u32 address;
         u32 netmask;
         u32 gateway;
     } __attribute__((packed)) resp;
-    R_TRY(serviceDispatchOut(&g_nifmIGS, 15, resp));
+
+    const auto _tmp_r_try_rc = (serviceDispatchOut(&g_nifmIGS, 15, resp)); 
+    if (R_FAILED(_tmp_r_try_rc)) { 
+        return _tmp_r_try_rc; 
+    } 
     *address = ntohl(resp.address);
     *netmask = ntohl(resp.netmask);
 
@@ -119,7 +123,10 @@ Result _nifmGetIReq() {
 }
 
 Result _nifmGetRequestState(s32 *state) {
-    R_TRY(serviceDispatchOut(&g_nifmIReq, 0, *state));
+    const auto _tmp_r_try_rc = (serviceDispatchOut(&g_nifmIReq, 0, *state)); 
+    if (R_FAILED(_tmp_r_try_rc)) { 
+        return _tmp_r_try_rc; 
+    } 
     LogFormat("_nifmGetRequestState %d", *state);
     if (*state == 1) {
         LogFormat("result %d", _nifmGetResult());
