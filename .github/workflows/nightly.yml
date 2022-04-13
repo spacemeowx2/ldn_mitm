@@ -17,8 +17,9 @@ jobs:
           pushd Atmosphere-libs
           git reset --hard origin/master
           popd
-      - uses: spacemeowx2/devkitpro-action@latest
+      - uses: spacemeowx2/devkitpro-action@v2
         with:
+          libnx-rev: master
           cmd: make -j8
 
       - name: Upload built files

@@ -10,8 +10,9 @@ jobs:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - uses: spacemeowx2/devkitpro-action@latest
+      - uses: spacemeowx2/devkitpro-action@v2
         with:
+          libnx-rev: 9865dbf92177c358b88fa7542b628d8a8a2a9d74
           cmd: make -j8
 
       - name: Upload built files
