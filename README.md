@@ -2,9 +2,10 @@
 
 A mitm kip modified from fs_mitm.
 
-```
-git submodule update --init --recursive
-```
+
+ldn_mitm implements LAN connectivity by replacing the system's ldn service.
+
+The original ldn service is only responsible for calling the WiFi service to scan and connect to nearby Switch. ldn_mitm uses the LAN UDP to emulate this scanning process. Therefore ldn_mitm is usually used with [`switch-lan-play`](https://github.com/spacemeowx2/switch-lan-play). A configuration tutorial can be found [here](http://www.lan-play.com/install).
 
 ## Version table
 
@@ -24,6 +25,27 @@ Please try the [GHA nightlies](https://github.com/spacemeowx2/ldn_mitm/actions) 
 | [1.3.4](https://github.com/spacemeowx2/ldn_mitm/releases/tag/v1.3.4)            | [0.11](https://github.com/Atmosphere-NX/Atmosphere/releases/tag/0.11.0)/[0.12](https://github.com/Atmosphere-NX/Atmosphere/releases/tag/0.12.0)          |
 | [1.3.3](https://github.com/spacemeowx2/ldn_mitm/releases/tag/v1.3.3)            | [0.10](https://github.com/Atmosphere-NX/Atmosphere/releases/tag/0.10.0)               |
 
+## Development
+
+Make sure that the submodule is initialized.
+
+```bash
+git submodule update --init --recursive
+```
+
+
+### Using Docker
+
+1. Install `Docker` and `docker-compose`.
+
+2. Run `docker-compose up --build`. It runs `make -j8` in the container.
+
+
+### Using devkitPro
+
+1. Install [`devkitPro`](https://devkitpro.org/wiki/Getting_Started) and install `switch-dev`, `libnx` using `dkp-pacman`.
+
+2. Run `make` command.
 
 Licensing
 =====
