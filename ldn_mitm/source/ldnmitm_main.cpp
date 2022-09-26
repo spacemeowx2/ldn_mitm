@@ -86,6 +86,14 @@ namespace ams {
 
     namespace mitm {
 
+        const s32 ThreadPriority = 6;
+        const size_t TotalThreads = 2;
+        const size_t NumExtraThreads = TotalThreads - 1;
+        const size_t ThreadStackSize = 0x4000;
+
+        alignas(os::MemoryPageSize) u8 g_thread_stack[ThreadStackSize];
+        os::ThreadType g_thread;
+
         namespace {
 
             struct LdnMitmManagerOptions {
@@ -96,7 +104,9 @@ namespace ams {
                 static constexpr bool   CanManageMitmServers  = true;
             };
 
-            class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
+            constexpr size_t MaxSessions = 3;
+
+            class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, MaxSessions> {
                         private:
                             virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
             };
@@ -112,6 +122,48 @@ namespace ams {
                 return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<mitm::ldn::ILdnMitMService, mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);
             }
 
+            alignas(os::MemoryPageSize) u8 g_extra_thread_stacks[NumExtraThreads][ThreadStackSize];
+            os::ThreadType g_extra_threads[NumExtraThreads];
+
+            void LoopServerThread(void *)
+            {
+                g_server_manager.LoopProcess();
+            }
+
+            void ProcessForServerOnAllThreads(void *)
+            {
+                /* Initialize threads. */
+                if constexpr (NumExtraThreads > 0)
+                {
+                    const s32 priority = os::GetThreadCurrentPriority(os::GetCurrentThread());
+                    for (size_t i = 0; i < NumExtraThreads; i++)
+                    {
+                        R_ABORT_UNLESS(os::CreateThread(g_extra_threads + i, LoopServerThread, nullptr, g_extra_thread_stacks[i], ThreadStackSize, priority));
+                        os::SetThreadNamePointer(g_extra_threads + i, "ldn_mitm::Thread");
+                    }
+                }
+
+                /* Start extra threads. */
+                if constexpr (NumExtraThreads > 0)
+                {
+                    for (size_t i = 0; i < NumExtraThreads; i++)
+                    {
+                        os::StartThread(g_extra_threads + i);
+                    }
+                }
+
+                /* Loop this thread. */
+                LoopServerThread(nullptr);
+
+                /* Wait for extra threads to finish. */
+                if constexpr (NumExtraThreads > 0)
+                {
+                    for (size_t i = 0; i < NumExtraThreads; i++)
+                    {
+                        os::WaitThread(g_extra_threads + i);
+                    }
+                }
+            }
         }
 
     }
@@ -161,7 +213,18 @@ namespace ams {
         R_ABORT_UNLESS((mitm::g_server_manager.RegisterMitmServer<mitm::ldn::LdnMitMService>(0, MitmServiceName)));
         LogFormat("registered");
 
-        mitm::g_server_manager.LoopProcess();
+        R_ABORT_UNLESS(os::CreateThread(
+            &mitm::g_thread,
+            mitm::ProcessForServerOnAllThreads,
+            nullptr,
+            mitm::g_thread_stack,
+            mitm::ThreadStackSize,
+            mitm::ThreadPriority));
+
+        os::SetThreadNamePointer(&mitm::g_thread, "ldn_mitm::MainThread");
+        os::StartThread(&mitm::g_thread);
+
+        os::WaitThread(&mitm::g_thread);
     }
 
 }
