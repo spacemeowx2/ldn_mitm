@@ -714,13 +714,16 @@ namespace ams::mitm::ldn {
             this->resetStations();
             this->inited = false;
 
+            rc = nifmRequestCancel(&request);
+            if (R_FAILED(rc))
+            {
+                LogFormat("final nifmRequestCancel failed: %x", rc);
+            }
+
+            LogFormat("final nifmSetNetworkProfile Setting mtu to: %d", &networkProfile.ip_setting_data.mtu);
             rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
             if (R_FAILED(rc)) {
                 LogFormat("final nifmSetNetworkProfile failed: %x", rc);
-            }
-            rc = nifmRequestCancel(&request);
-            if (R_FAILED(rc)) {
-                LogFormat("final nifmRequestCancel failed: %x", rc);
             }
         }
 
@@ -734,7 +737,22 @@ namespace ams::mitm::ldn {
             return 0;
         }
 
-        Result rc = nifmCreateRequest(&request, true);
+        Result rc = nifmGetCurrentNetworkProfile(&networkProfile);
+        if (R_FAILED(rc))
+        {
+            LogFormat("nifmGetCurrentNetworkProfile failed: %x", rc);
+        }
+
+        NifmNetworkProfileData np = networkProfile;
+        np.ip_setting_data.mtu = 1500;
+
+        rc = nifmSetNetworkProfile(&np, &np.uuid);
+        if (R_FAILED(rc))
+        {
+            LogFormat("nifmSetNetworkProfile failed: %x", rc);
+        }
+
+        rc = nifmCreateRequest(&request, true);
         if (R_FAILED(rc))
         {
             LogFormat("nifmCreateRequest failed: %x", rc);
@@ -751,18 +769,6 @@ namespace ams::mitm::ldn {
         {
             LogFormat("nifmRequestSubmitAndWait failed: %x", rc);
             return rc;
-        }
-
-        rc = nifmGetCurrentNetworkProfile(&networkProfile);
-        if (R_FAILED(rc)) {
-            LogFormat("nifmGetCurrentNetworkProfile failed: %x", rc);
-        }
-
-        NifmNetworkProfileData np = networkProfile;
-        np.ip_setting_data.mtu = 1500;
-        rc = nifmSetNetworkProfile(&np, &np.uuid);
-        if (R_FAILED(rc)) {
-            LogFormat("nifmSetNetworkProfile failed: %x", rc);
         }
 
         for (auto &i : stations) {
