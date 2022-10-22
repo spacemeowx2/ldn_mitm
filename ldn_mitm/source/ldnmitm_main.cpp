@@ -94,6 +94,38 @@ namespace ams {
         alignas(os::MemoryPageSize) u8 g_thread_stack[ThreadStackSize];
         os::ThreadType g_thread;
 
+        alignas(0x40) constinit u8 g_heap_memory[128_KB];
+        constinit lmem::HeapHandle g_heap_handle;
+        constinit bool g_heap_initialized;
+        constinit os::SdkMutex g_heap_init_mutex;
+
+        lmem::HeapHandle GetHeapHandle()
+        {
+            if (AMS_UNLIKELY(!g_heap_initialized))
+            {
+                std::scoped_lock lk(g_heap_init_mutex);
+
+                if (AMS_LIKELY(!g_heap_initialized))
+                {
+                    g_heap_handle = lmem::CreateExpHeap(g_heap_memory, sizeof(g_heap_memory), lmem::CreateOption_ThreadSafe);
+                    g_heap_initialized = true;
+                }
+            }
+
+            return g_heap_handle;
+        }
+
+        void *Allocate(size_t size)
+        {
+            return lmem::AllocateFromExpHeap(GetHeapHandle(), size);
+        }
+
+        void Deallocate(void *p, size_t size)
+        {
+            AMS_UNUSED(size);
+            return lmem::FreeToExpHeap(GetHeapHandle(), p);
+        }
+
         namespace {
 
             struct LdnMitmManagerOptions {
@@ -171,24 +203,22 @@ namespace ams {
     namespace init {
 
         void InitializeSystemModule() {
-            /* Sleep 10 seconds (seems unnecessary). */
-            os::SleepThread(TimeSpan::FromSeconds(10));
-
             /* Initialize our connection to sm. */
             R_ABORT_UNLESS(sm::Initialize());
 
             /* Initialize fs. */
             fs::InitializeForSystem();
+            fs::SetAllocator(mitm::Allocate, mitm::Deallocate);
             fs::SetEnabledAutoAbort(false);
+
+            /* Mount the SD card. */
+            R_ABORT_UNLESS(fs::MountSdCard("sdmc"));
 
             /* Initialize other services. */
 
             R_ABORT_UNLESS(ipinfoInit());
             R_ABORT_UNLESS(bsdInitialize(&LibnxBsdInitConfig, LibnxSocketInitConfig.num_bsd_sessions, LibnxSocketInitConfig.bsd_service_type));
             R_ABORT_UNLESS(socketInitialize(&LibnxSocketInitConfig));
-            R_ABORT_UNLESS(fsdevMountSdmc());
-
-            LogFormat("InitializeSystemModule done");
         }
 
         void FinalizeSystemModule() { /* ... */ }
@@ -206,6 +236,7 @@ namespace ams {
     }
 
     void Main() {
+        R_ABORT_UNLESS(log::Initialize());
         LogFormat("main");
 
         constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
@@ -227,4 +258,44 @@ namespace ams {
         os::WaitThread(&mitm::g_thread);
     }
 
+}
+
+void *operator new(size_t size)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void *operator new(size_t size, const std::nothrow_t &)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void operator delete(void *p)
+{
+    return ams::mitm::Deallocate(p, 0);
+}
+
+void operator delete(void *p, size_t size)
+{
+    return ams::mitm::Deallocate(p, size);
+}
+
+void *operator new[](size_t size)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void *operator new[](size_t size, const std::nothrow_t &)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void operator delete[](void *p)
+{
+    return ams::mitm::Deallocate(p, 0);
+}
+
+void operator delete[](void *p, size_t size)
+{
+    return ams::mitm::Deallocate(p, size);
 }

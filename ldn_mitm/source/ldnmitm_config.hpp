@@ -15,7 +15,6 @@ namespace ams::mitm::ldn {
             static std::atomic_bool LdnEnabled;
         public:
 
-            Result SaveLogToFile();
             Result GetVersion(sf::Out<LdnMitmVersion> version);
             Result GetLogging(sf::Out<u32> enabled);
             Result SetLogging(u32 enabled);
@@ -23,5 +22,5 @@ namespace ams::mitm::ldn {
             Result SetEnabled(u32 enabled);
     };
     static_assert(ams::mitm::ldn::IsILdnConfig<LdnConfig>);
-    
+
 }

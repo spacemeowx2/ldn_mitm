@@ -5,9 +5,6 @@
 namespace ams::mitm::ldn {
     std::atomic_bool LdnConfig::LdnEnabled = true;
 
-    Result LdnConfig::SaveLogToFile() {
-        return ::SaveLogToFile();
-    }
     Result LdnConfig::GetVersion(sf::Out<LdnMitmVersion> version) {
         std::strcpy(version.GetPointer()->raw, GITDESCVER);
         return 0;

@@ -77,12 +77,11 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					$(foreach dir,$(AMS_LIBDIRS),-L$(dir)/lib) \
-					$(foreach dir,$(AMS_LIBDIRS),-L$(dir)/$(ATMOSPHERE_LIBRARY_DIR)) 
+					$(foreach dir,$(AMS_LIBDIRS),-L$(dir)/$(ATMOSPHERE_LIBRARY_DIR))
 
 export BUILD_EXEFS_SRC := $(TOPDIR)/$(EXEFS_SRC)
 
 export APP_JSON := $(TOPDIR)/res/app.json
-export KIP_JSON := $(TOPDIR)/res/kip.json
 
 .PHONY: $(BUILD) clean all
 
@@ -107,15 +106,20 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-all: $(OUTPUT).kip $(OUTPUT).nsp
+all: $(OUTPUT).nsp
 
-$(OUTPUT).nsp: $(OUTPUT).nso $(OUTPUT).npdm
+$(OUTPUT).kip :	$(OUTPUT).elf
+$(OUTPUT).nsp :	$(OUTPUT).nso $(OUTPUT).npdm
+$(OUTPUT).nso :	$(OUTPUT).elf
 
-$(OUTPUT).kip: $(OUTPUT).elf $(KIP_JSON)
-	@elf2kip $< $(KIP_JSON) $@
+$(OUTPUT).elf :	$(OFILES)
+
+$(OFILES) : $(ATMOSPHERE_LIBRARIES_DIR)/libstratosphere/$(ATMOSPHERE_LIBRARY_DIR)/libstratosphere.a
+
+%.npdm  :   %.npdm.json
+	@echo built ... $< $@
+	@npdmtool $< $@
 	@echo built ... $(notdir $@)
-
-$(OUTPUT).elf: $(OFILES)
 
 #---------------------------------------------------------------------------------
 # you need a rule like this for each extension you use as binary data
