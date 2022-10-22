@@ -85,6 +85,9 @@ namespace ams::mitm::ldn {
         u32 gateway, primary_dns, secondary_dns;
         Result rc = nifmGetCurrentIpConfigInfo(address.GetPointer(), netmask.GetPointer(), &gateway, &primary_dns, &secondary_dns);
 
+        address.SetValue(ntohl(address.GetValue()));
+        netmask.SetValue(ntohl(netmask.GetValue()));
+
         LogFormat("get_ipv4_address %x %x", address.GetValue(), netmask.GetValue());
 
         return rc;

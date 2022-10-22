@@ -130,6 +130,8 @@ namespace ams::mitm::ldn {
     u32 LDUdpSocket::getBroadcast() {
         u32 address, netmask, gateway, primary_dns, secondary_dns;
         Result rc = nifmGetCurrentIpConfigInfo(&address, &netmask, &gateway, &primary_dns, &secondary_dns);
+        address = ntohl(address);
+        netmask = ntohl(netmask);
         if (R_FAILED(rc)) {
             LogFormat("Broadcast failed to get ip");
             return 0xFFFFFFFF;
@@ -226,6 +228,7 @@ namespace ams::mitm::ldn {
         u32 ip;
         Result rc = nifmGetCurrentIpAddress(&ip);
         if (R_SUCCEEDED(rc)) {
+            ip = ntohl(ip);
             memcpy(mac->raw + 2, &ip, sizeof(ip));
         }
 
@@ -520,9 +523,11 @@ namespace ams::mitm::ldn {
     Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion) {
         u32 ipAddress;
         Result rc = nifmGetCurrentIpAddress(&ipAddress);
-        if (R_FAILED(rc)) {
+        if (R_FAILED(rc))
+        {
             return rc;
         }
+        ipAddress = ntohl(ipAddress);
         rc = getFakeMac(&node->macAddress);
         if (R_FAILED(rc)) {
             return rc;
