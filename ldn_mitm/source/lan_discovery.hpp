@@ -137,7 +137,7 @@ namespace ams::mitm::ldn {
             NifmRequest request;
             NifmNetworkProfileData networkProfile;
             bool stop;
-            bool inited;
+            bool initialized;
             NetworkInfo networkInfo;
             u16 listenPort;
             os::ThreadType workerThread;
@@ -176,7 +176,7 @@ namespace ams::mitm::ldn {
                 disconnect_reason(DisconnectReason::None),
                 pollMutex(false),
                 stations({{{1, this}, {2, this}, {3, this}, {4, this}, {5, this}, {6, this}, {7, this}}}),
-                stop(false), inited(false),
+                stop(false), initialized(false),
                 networkInfo({}), listenPort(port),
                 state(CommState::None)
             {

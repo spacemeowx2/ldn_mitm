@@ -445,7 +445,7 @@ namespace ams::mitm::ldn {
 
     int LANDiscovery::loopPoll() {
         int rc;
-        if (!inited) {
+        if (!initialized) {
             return 0;
         }
 
@@ -464,7 +464,7 @@ namespace ams::mitm::ldn {
 
     LANDiscovery::~LANDiscovery() {
         LogFormat("~LANDiscovery");
-        if (this->inited) {
+        if (this->initialized) {
             LogFormat("finalize not called");
             Result rc = this->finalize();
             LogFormat("finalize: %d", rc);
@@ -710,14 +710,14 @@ namespace ams::mitm::ldn {
     Result LANDiscovery::finalize() {
         Result rc = 0;
 
-        if (this->inited) {
+        if (this->initialized) {
             this->stop = true;
             os::WaitThread(&this->workerThread);
             os::DestroyThread(&this->workerThread);
             this->udp.reset();
             this->tcp.reset();
             this->resetStations();
-            this->inited = false;
+            this->initialized = false;
 
             rc = nifmRequestCancel(&request);
             if (R_FAILED(rc))
@@ -737,7 +737,8 @@ namespace ams::mitm::ldn {
     }
 
     Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
-        if (this->inited) {
+        if (this->initialized)
+        {
             return 0;
         }
 
@@ -800,7 +801,7 @@ namespace ams::mitm::ldn {
         os::StartThread(&this->workerThread);
         this->setState(CommState::Initialized);
 
-        this->inited = true;
+        this->initialized = true;
         return 0;
     }
 }
