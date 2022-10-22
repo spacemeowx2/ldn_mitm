@@ -134,6 +134,8 @@ namespace ams::mitm::ldn {
             std::array<NodeLatestUpdate, NodeCountMax> nodeChanges;
             std::array<u8, NodeCountMax> nodeLastStates;
             static void Worker(void* args);
+            NifmRequest request;
+            NifmNetworkProfileData networkProfile;
             bool stop;
             bool inited;
             NetworkInfo networkInfo;
