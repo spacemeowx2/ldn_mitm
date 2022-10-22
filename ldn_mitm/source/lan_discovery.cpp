@@ -725,7 +725,6 @@ namespace ams::mitm::ldn {
                 LogFormat("final nifmRequestCancel failed: %x", rc);
             }
 
-            LogFormat("final nifmSetNetworkProfile Setting mtu to: %d", &networkProfile.ip_setting_data.mtu);
             rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
             if (R_FAILED(rc)) {
                 LogFormat("final nifmSetNetworkProfile failed: %x", rc);
@@ -746,6 +745,7 @@ namespace ams::mitm::ldn {
         if (R_FAILED(rc))
         {
             LogFormat("nifmGetCurrentNetworkProfile failed: %x", rc);
+            return rc;
         }
 
         NifmNetworkProfileData np = networkProfile;
@@ -755,6 +755,7 @@ namespace ams::mitm::ldn {
         if (R_FAILED(rc))
         {
             LogFormat("nifmSetNetworkProfile failed: %x", rc);
+            return rc;
         }
 
         rc = nifmCreateRequest(&request, true);
@@ -767,6 +768,7 @@ namespace ams::mitm::ldn {
         rc = nifmSetLocalNetworkMode(&request, true);
         if (R_FAILED(rc)) {
             LogFormat("nifmSetLocalNetworkMode failed %x", rc);
+            return rc;
         }
 
         rc = nifmRequestSubmitAndWait(&request);

@@ -1,4 +1,5 @@
 #include "ldn_icommunication.hpp"
+#include <arpa/inet.h>
 
 namespace ams::mitm::ldn {
     static_assert(sizeof(NetworkInfo) == 0x480, "sizeof(NetworkInfo) should be 0x480");
