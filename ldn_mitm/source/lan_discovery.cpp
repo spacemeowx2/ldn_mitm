@@ -725,6 +725,14 @@ namespace ams::mitm::ldn {
                 LogFormat("final nifmRequestCancel failed: %x", rc);
             }
 
+            NifmNetworkProfileData networkProfile;
+            rc = nifmGetCurrentNetworkProfile(&networkProfile);
+            if (R_FAILED(rc))
+            {
+                LogFormat("final nifmGetCurrentProfile failed: %x", rc);
+            }
+
+            networkProfile.ip_setting_data.mtu = originalMtu;
             rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
             if (R_FAILED(rc)) {
                 LogFormat("final nifmSetNetworkProfile failed: %x", rc);
@@ -742,6 +750,7 @@ namespace ams::mitm::ldn {
             return 0;
         }
 
+        NifmNetworkProfileData networkProfile;
         Result rc = nifmGetCurrentNetworkProfile(&networkProfile);
         if (R_FAILED(rc))
         {
@@ -749,10 +758,10 @@ namespace ams::mitm::ldn {
             return rc;
         }
 
-        NifmNetworkProfileData np = networkProfile;
-        np.ip_setting_data.mtu = 1500;
+        originalMtu = networkProfile.ip_setting_data.mtu;
+        networkProfile.ip_setting_data.mtu = 1500;
 
-        rc = nifmSetNetworkProfile(&np, &np.uuid);
+        rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
         if (R_FAILED(rc))
         {
             LogFormat("nifmSetNetworkProfile failed: %x", rc);
