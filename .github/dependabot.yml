@@ -1,0 +1,12 @@
+version: 2
+
+updates:
+  - directory: /
+    open-pull-requests-limit: 5
+    package-ecosystem: gitsubmodule
+    reviewers:
+      - spacemeowx2
+    commit-message:
+      prefix: submodule
+    schedule:
+      interval: daily

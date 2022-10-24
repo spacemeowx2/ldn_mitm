@@ -2,7 +2,7 @@ version: "2"
 
 services:
   devkit:
-    build: .
+    image: devkitpro/devkita64:latest
     volumes:
       - ".:/code"
-    command: make -j8
+    command: bash -c "dkp-pacman -Syu --noconfirm && cd /code && make -j8"
