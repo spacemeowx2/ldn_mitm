@@ -18,8 +18,11 @@ jobs:
         with:
           submodules: true
 
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
       - name: Build
-        run: make -j8
+        run: make -j8 PREFIX="ccache aarch64-none-elf-"
 
       - name: Install libnx master & Retry build
         if: ${{ failure() }}
@@ -27,10 +30,10 @@ jobs:
           pushd /tmp
           git clone https://github.com/switchbrew/libnx
           cd libnx
-          make -j8
+          make -j8 PREFIX="ccache aarch64-none-elf-"
           make install
           popd
-          make -j8
+          make -j8 PREFIX="ccache aarch64-none-elf-"
 
       - name: Upload built files
         uses: actions/upload-artifact@v3
