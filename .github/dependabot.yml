@@ -10,3 +10,13 @@ updates:
       prefix: submodule
     schedule:
       interval: daily
+  
+  - directory: /
+    open-pull-requests-limit: 5
+    package-ecosystem: github-actions
+    reviewers:
+      - spacemeowx2
+    commit-message:
+      prefix: gha
+    schedule:
+      interval: weekly
