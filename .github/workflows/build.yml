@@ -12,7 +12,7 @@ jobs:
           submodules: true
       - uses: spacemeowx2/devkitpro-action@v2
         with:
-          libnx-rev: 9865dbf92177c358b88fa7542b628d8a8a2a9d74
+          libnx-rev: 5ca15e7696e174c41ee94974d62602fde722ac3b
           cmd: make -j8
 
       - name: Upload built files
