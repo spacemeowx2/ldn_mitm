@@ -6,29 +6,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    container:
+      image: devkitpro/devkita64:latest
+
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
         with:
           submodules: true
-      - uses: spacemeowx2/devkitpro-action@v2
-        with:
-          libnx-rev: 5ca15e7696e174c41ee94974d62602fde722ac3b
-          cmd: make -j8
+
+      - name: Build
+        run: make -j8
 
       - name: Upload built files
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: sdcard
           path: out/sd
 
       - name: Upload elf file
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: ldn_mitm.elf
           path: ldn_mitm/ldn_mitm.elf
 
       - name: Upload elf file
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: ldn_mitm.elf
           path: overlay/overlay.elf
