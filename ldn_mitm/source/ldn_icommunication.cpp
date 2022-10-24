@@ -1,4 +1,5 @@
 #include "ldn_icommunication.hpp"
+#include <arpa/inet.h>
 
 namespace ams::mitm::ldn {
     static_assert(sizeof(NetworkInfo) == 0x480, "sizeof(NetworkInfo) should be 0x480");
@@ -82,7 +83,11 @@ namespace ams::mitm::ldn {
     }
 
     Result ICommunicationService::GetIpv4Address(sf::Out<u32> address, sf::Out<u32> netmask) {
-        Result rc = ipinfoGetIpConfig(address.GetPointer(), netmask.GetPointer());
+        u32 gateway, primary_dns, secondary_dns;
+        Result rc = nifmGetCurrentIpConfigInfo(address.GetPointer(), netmask.GetPointer(), &gateway, &primary_dns, &secondary_dns);
+
+        address.SetValue(ntohl(address.GetValue()));
+        netmask.SetValue(ntohl(netmask.GetValue()));
 
         LogFormat("get_ipv4_address %x %x", address.GetValue(), netmask.GetValue());
 

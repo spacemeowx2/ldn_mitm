@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <cstring>
 #include <malloc.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 #include <switch.h>
 
@@ -86,6 +88,46 @@ namespace ams {
 
     namespace mitm {
 
+        const s32 ThreadPriority = 6;
+        const size_t TotalThreads = 2;
+        const size_t NumExtraThreads = TotalThreads - 1;
+        const size_t ThreadStackSize = 0x4000;
+
+        alignas(os::MemoryPageSize) u8 g_thread_stack[ThreadStackSize];
+        os::ThreadType g_thread;
+
+        alignas(0x40) constinit u8 g_heap_memory[128_KB];
+        constinit lmem::HeapHandle g_heap_handle;
+        constinit bool g_heap_initialized;
+        constinit os::SdkMutex g_heap_init_mutex;
+
+        lmem::HeapHandle GetHeapHandle()
+        {
+            if (AMS_UNLIKELY(!g_heap_initialized))
+            {
+                std::scoped_lock lk(g_heap_init_mutex);
+
+                if (AMS_LIKELY(!g_heap_initialized))
+                {
+                    g_heap_handle = lmem::CreateExpHeap(g_heap_memory, sizeof(g_heap_memory), lmem::CreateOption_ThreadSafe);
+                    g_heap_initialized = true;
+                }
+            }
+
+            return g_heap_handle;
+        }
+
+        void *Allocate(size_t size)
+        {
+            return lmem::AllocateFromExpHeap(GetHeapHandle(), size);
+        }
+
+        void Deallocate(void *p, size_t size)
+        {
+            AMS_UNUSED(size);
+            return lmem::FreeToExpHeap(GetHeapHandle(), p);
+        }
+
         namespace {
 
             struct LdnMitmManagerOptions {
@@ -96,7 +138,9 @@ namespace ams {
                 static constexpr bool   CanManageMitmServers  = true;
             };
 
-            class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, 3> {
+            constexpr size_t MaxSessions = 3;
+
+            class ServerManager final : public sf::hipc::ServerManager<1, LdnMitmManagerOptions, MaxSessions> {
                         private:
                             virtual ams::Result OnNeedsToAccept(int port_index, Server *server) override;
             };
@@ -112,6 +156,48 @@ namespace ams {
                 return this->AcceptMitmImpl(server, sf::CreateSharedObjectEmplaced<mitm::ldn::ILdnMitMService, mitm::ldn::LdnMitMService>(decltype(fsrv)(fsrv), client_info), fsrv);
             }
 
+            alignas(os::MemoryPageSize) u8 g_extra_thread_stacks[NumExtraThreads][ThreadStackSize];
+            os::ThreadType g_extra_threads[NumExtraThreads];
+
+            void LoopServerThread(void *)
+            {
+                g_server_manager.LoopProcess();
+            }
+
+            void ProcessForServerOnAllThreads(void *)
+            {
+                /* Initialize threads. */
+                if constexpr (NumExtraThreads > 0)
+                {
+                    const s32 priority = os::GetThreadCurrentPriority(os::GetCurrentThread());
+                    for (size_t i = 0; i < NumExtraThreads; i++)
+                    {
+                        R_ABORT_UNLESS(os::CreateThread(g_extra_threads + i, LoopServerThread, nullptr, g_extra_thread_stacks[i], ThreadStackSize, priority));
+                        os::SetThreadNamePointer(g_extra_threads + i, "ldn_mitm::Thread");
+                    }
+                }
+
+                /* Start extra threads. */
+                if constexpr (NumExtraThreads > 0)
+                {
+                    for (size_t i = 0; i < NumExtraThreads; i++)
+                    {
+                        os::StartThread(g_extra_threads + i);
+                    }
+                }
+
+                /* Loop this thread. */
+                LoopServerThread(nullptr);
+
+                /* Wait for extra threads to finish. */
+                if constexpr (NumExtraThreads > 0)
+                {
+                    for (size_t i = 0; i < NumExtraThreads; i++)
+                    {
+                        os::WaitThread(g_extra_threads + i);
+                    }
+                }
+            }
         }
 
     }
@@ -119,24 +205,22 @@ namespace ams {
     namespace init {
 
         void InitializeSystemModule() {
-            /* Sleep 10 seconds (seems unnecessary). */
-            os::SleepThread(TimeSpan::FromSeconds(10));
-
             /* Initialize our connection to sm. */
             R_ABORT_UNLESS(sm::Initialize());
 
             /* Initialize fs. */
             fs::InitializeForSystem();
+            fs::SetAllocator(mitm::Allocate, mitm::Deallocate);
             fs::SetEnabledAutoAbort(false);
+
+            /* Mount the SD card. */
+            R_ABORT_UNLESS(fs::MountSdCard("sdmc"));
 
             /* Initialize other services. */
 
-            R_ABORT_UNLESS(ipinfoInit());
+            R_ABORT_UNLESS(nifmInitialize(NifmServiceType_Admin));
             R_ABORT_UNLESS(bsdInitialize(&LibnxBsdInitConfig, LibnxSocketInitConfig.num_bsd_sessions, LibnxSocketInitConfig.bsd_service_type));
             R_ABORT_UNLESS(socketInitialize(&LibnxSocketInitConfig));
-            R_ABORT_UNLESS(fsdevMountSdmc());
-
-            LogFormat("InitializeSystemModule done");
         }
 
         void FinalizeSystemModule() { /* ... */ }
@@ -154,6 +238,7 @@ namespace ams {
     }
 
     void Main() {
+        R_ABORT_UNLESS(log::Initialize());
         LogFormat("main");
 
         constexpr sm::ServiceName MitmServiceName = sm::ServiceName::Encode("ldn:u");
@@ -161,7 +246,58 @@ namespace ams {
         R_ABORT_UNLESS((mitm::g_server_manager.RegisterMitmServer<mitm::ldn::LdnMitMService>(0, MitmServiceName)));
         LogFormat("registered");
 
-        mitm::g_server_manager.LoopProcess();
+        R_ABORT_UNLESS(os::CreateThread(
+            &mitm::g_thread,
+            mitm::ProcessForServerOnAllThreads,
+            nullptr,
+            mitm::g_thread_stack,
+            mitm::ThreadStackSize,
+            mitm::ThreadPriority));
+
+        os::SetThreadNamePointer(&mitm::g_thread, "ldn_mitm::MainThread");
+        os::StartThread(&mitm::g_thread);
+
+        os::WaitThread(&mitm::g_thread);
     }
 
+}
+
+void *operator new(size_t size)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void *operator new(size_t size, const std::nothrow_t &)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void operator delete(void *p)
+{
+    return ams::mitm::Deallocate(p, 0);
+}
+
+void operator delete(void *p, size_t size)
+{
+    return ams::mitm::Deallocate(p, size);
+}
+
+void *operator new[](size_t size)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void *operator new[](size_t size, const std::nothrow_t &)
+{
+    return ams::mitm::Allocate(size);
+}
+
+void operator delete[](void *p)
+{
+    return ams::mitm::Deallocate(p, 0);
+}
+
+void operator delete[](void *p, size_t size)
+{
+    return ams::mitm::Deallocate(p, size);
 }

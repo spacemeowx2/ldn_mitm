@@ -128,9 +128,10 @@ namespace ams::mitm::ldn {
     }
 
     u32 LDUdpSocket::getBroadcast() {
-        u32 address;
-        u32 netmask;
-        Result rc = ipinfoGetIpConfig(&address, &netmask);
+        u32 address, netmask, gateway, primary_dns, secondary_dns;
+        Result rc = nifmGetCurrentIpConfigInfo(&address, &netmask, &gateway, &primary_dns, &secondary_dns);
+        address = ntohl(address);
+        netmask = ntohl(netmask);
         if (R_FAILED(rc)) {
             LogFormat("Broadcast failed to get ip");
             return 0xFFFFFFFF;
@@ -225,8 +226,9 @@ namespace ams::mitm::ldn {
         mac->raw[1] = 0x00;
 
         u32 ip;
-        Result rc = ipinfoGetIpConfig(&ip);
+        Result rc = nifmGetCurrentIpAddress(&ip);
         if (R_SUCCEEDED(rc)) {
+            ip = ntohl(ip);
             memcpy(mac->raw + 2, &ip, sizeof(ip));
         }
 
@@ -443,7 +445,7 @@ namespace ams::mitm::ldn {
 
     int LANDiscovery::loopPoll() {
         int rc;
-        if (!inited) {
+        if (!initialized) {
             return 0;
         }
 
@@ -462,7 +464,7 @@ namespace ams::mitm::ldn {
 
     LANDiscovery::~LANDiscovery() {
         LogFormat("~LANDiscovery");
-        if (this->inited) {
+        if (this->initialized) {
             LogFormat("finalize not called");
             Result rc = this->finalize();
             LogFormat("finalize: %d", rc);
@@ -520,10 +522,12 @@ namespace ams::mitm::ldn {
 
     Result LANDiscovery::getNodeInfo(NodeInfo *node, const UserConfig *userConfig, u16 localCommunicationVersion) {
         u32 ipAddress;
-        Result rc = ipinfoGetIpConfig(&ipAddress);
-        if (R_FAILED(rc)) {
+        Result rc = nifmGetCurrentIpAddress(&ipAddress);
+        if (R_FAILED(rc))
+        {
             return rc;
         }
+        ipAddress = ntohl(ipAddress);
         rc = getFakeMac(&node->macAddress);
         if (R_FAILED(rc)) {
             return rc;
@@ -706,38 +710,82 @@ namespace ams::mitm::ldn {
     Result LANDiscovery::finalize() {
         Result rc = 0;
 
-        if (this->inited) {
+        if (this->initialized) {
             this->stop = true;
             os::WaitThread(&this->workerThread);
             os::DestroyThread(&this->workerThread);
             this->udp.reset();
             this->tcp.reset();
             this->resetStations();
-            this->inited = false;
+            this->initialized = false;
 
-            rc = nifmCancelRequest();
+            rc = nifmRequestCancel(&request);
+            if (R_FAILED(rc))
+            {
+                LogFormat("final nifmRequestCancel failed: %x", rc);
+            }
+
+            NifmNetworkProfileData networkProfile;
+            rc = nifmGetCurrentNetworkProfile(&networkProfile);
+            if (R_FAILED(rc))
+            {
+                LogFormat("final nifmGetCurrentProfile failed: %x", rc);
+            }
+
+            networkProfile.ip_setting_data.mtu = originalMtu;
+            rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
             if (R_FAILED(rc)) {
-                LogFormat("nifmCancelRequest failed %x", rc);
+                LogFormat("final nifmSetNetworkProfile failed: %x", rc);
             }
         }
 
         this->setState(CommState::None);
 
-        return 0;
+        return rc;
     }
 
     Result LANDiscovery::initialize(LanEventFunc lanEvent, bool listening) {
-        if (this->inited) {
+        if (this->initialized)
+        {
             return 0;
         }
 
-        Result rc = nifmSetLocalNetworkMode(true);
+        NifmNetworkProfileData networkProfile;
+        Result rc = nifmGetCurrentNetworkProfile(&networkProfile);
+        if (R_FAILED(rc))
+        {
+            LogFormat("nifmGetCurrentNetworkProfile failed: %x", rc);
+            return rc;
+        }
+
+        originalMtu = networkProfile.ip_setting_data.mtu;
+        networkProfile.ip_setting_data.mtu = 1500;
+
+        rc = nifmSetNetworkProfile(&networkProfile, &networkProfile.uuid);
+        if (R_FAILED(rc))
+        {
+            LogFormat("nifmSetNetworkProfile failed: %x", rc);
+            return rc;
+        }
+
+        rc = nifmCreateRequest(&request, true);
+        if (R_FAILED(rc))
+        {
+            LogFormat("nifmCreateRequest failed: %x", rc);
+            return rc;
+        }
+
+        rc = nifmSetLocalNetworkMode(&request, true);
         if (R_FAILED(rc)) {
             LogFormat("nifmSetLocalNetworkMode failed %x", rc);
+            return rc;
         }
-        rc = nifmSubmitRequestAndWait();
-        if (R_FAILED(rc)) {
-            LogFormat("nifmSubmitRequestAndWait failed %x", rc);
+
+        rc = nifmRequestSubmitAndWait(&request);
+        if (R_FAILED(rc))
+        {
+            LogFormat("nifmRequestSubmitAndWait failed: %x", rc);
+            return rc;
         }
 
         for (auto &i : stations) {
@@ -762,7 +810,7 @@ namespace ams::mitm::ldn {
         os::StartThread(&this->workerThread);
         this->setState(CommState::Initialized);
 
-        this->inited = true;
+        this->initialized = true;
         return 0;
     }
 }

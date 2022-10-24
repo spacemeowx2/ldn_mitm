@@ -13,127 +13,131 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
-#include <switch.h>
-#include <cstring>
-#include <cstdio>
-#include <ctime>
-#include <atomic>
+
 #include "debug.hpp"
 
 const size_t TlsBackupSize = 0x100;
-// 100 KB
-const size_t MemoryLogSize = 100 * 1024;
-
-#ifndef ENABLE_MEMLOG
-#define ENABLE_MEMLOG 1
-#endif
 
 static std::atomic_bool g_logging_enabled = false;
-static Mutex g_file_mutex = 0;
-#if ENABLE_MEMLOG
-static char MemoryLog[MemoryLogSize] = {0};
-static size_t MemoryLogPos = 0;
-static Mutex MemoryLogMutex = 0;
-#endif
 #define BACKUP_TLS() u8 _tls_backup[TlsBackupSize];memcpy(_tls_backup, armGetTls(), TlsBackupSize);
 #define RESTORE_TLS() memcpy(armGetTls(), _tls_backup, TlsBackupSize);
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 
-Result SetLogging(u32 enabled) {
+Result SetLogging(u32 enabled)
+{
     g_logging_enabled = enabled;
     return 0;
 }
-Result GetLogging(u32 *enabled) {
+
+Result GetLogging(u32 *enabled)
+{
     *enabled = g_logging_enabled;
     return 0;
 }
 
-void LogStr(const char *str);
+namespace ams::log
+{
+    namespace {
+        constexpr const char LogFilePath[] = "sdmc:/ldn_mitm.log";
+        fs::FileHandle LogFile;
+        s64 LogOffset;
 
-void LogHex(const void *data, int size) {
-    if (g_logging_enabled) {
-        u8 *dat = (u8 *)data;
-        char buf[128];
-        LogFormat("Bin Log: %d (%p)", size, data);
-        for (int i = 0; i < size; i += 16) {
-            int s = MIN(size - i, 16);
-            buf[0] = 0;
-            for (int j = 0; j < s; j++) {
-                sprintf(buf + strlen(buf), "%02x", dat[i + j]);
+        os::Mutex g_file_log_lock(true);
+    }
+
+    Result Initialize()
+    {
+        // Check if log file exists and create it if not
+        bool has_file;
+        R_TRY(fs::HasFile(&has_file, LogFilePath));
+        if (!has_file)
+        {
+            R_TRY(fs::CreateFile(LogFilePath, 0));
+        }
+
+        // Get file write offset
+        R_TRY(fs::OpenFile(&LogFile, LogFilePath, fs::OpenMode_Write | fs::OpenMode_AllowAppend));
+        R_TRY(GetFileSize(&LogOffset, LogFile));
+
+        fs::CloseFile(LogFile);
+
+        R_SUCCEED();
+    }
+
+    void Finalize()
+    {
+        fs::FlushFile(LogFile);
+        fs::CloseFile(LogFile);
+    }
+
+    void LogPrefix()
+    {
+        char buf[0x100];
+        auto thread = os::GetCurrentThread();
+        auto ts = os::GetSystemTick().ToTimeSpan();
+
+        auto len = util::TSNPrintf(buf, sizeof(buf), "[ts: %6lums t: (%lu) %-22s p: %d/%d] ",
+                                   ts.GetMilliSeconds(),
+                                   os::GetThreadId(thread),
+                                   os::GetThreadNamePointer(thread),
+                                   os::GetThreadPriority(thread) + 28,
+                                   os::GetThreadCurrentPriority(thread) + 28);
+
+        R_ABORT_UNLESS(fs::WriteFile(LogFile, LogOffset, buf, len, fs::WriteOption::None));
+        LogOffset += len;
+    }
+
+    void LogStr(const char *fmt, std::va_list args)
+    {
+        if (g_logging_enabled)
+        {
+            std::scoped_lock lk(g_file_log_lock);
+            BACKUP_TLS();
+            R_ABORT_UNLESS(fs::OpenFile(&LogFile, LogFilePath, fs::OpenMode_Write | fs::OpenMode_AllowAppend));
+
+            LogPrefix();
+            char buf[0x100];
+            int len = util::TVSNPrintf(buf, sizeof(buf), fmt, args);
+            R_ABORT_UNLESS(fs::WriteFile(LogFile, LogOffset, buf, len, fs::WriteOption::Flush));
+            LogOffset += len;
+
+            fs::CloseFile(LogFile);
+            RESTORE_TLS();
+        }
+    }
+
+    void LogHexImpl(const void *data, int size)
+    {
+        if (g_logging_enabled)
+        {
+            u8 *dat = (u8 *)data;
+            char buf[0x100];
+            LogFormatImpl("Bin Log: %d (%p)\n", size, data);
+            BACKUP_TLS();
+            R_ABORT_UNLESS(fs::OpenFile(&LogFile, LogFilePath, fs::OpenMode_Write | fs::OpenMode_AllowAppend));
+            for (int i = 0; i < size; i += 16)
+            {
+                int s = MIN(size - i, 16);
+                buf[0] = 0;
+                for (int j = 0; j < s; j++)
+                {
+                    sprintf(buf + strlen(buf), "%02x", dat[i + j]);
+                }
+                sprintf(buf + strlen(buf), "\n");
+                R_ABORT_UNLESS(fs::WriteFile(LogFile, LogOffset, buf, strlen(buf), fs::WriteOption::Flush));
+                LogOffset += strlen(buf);
             }
-            sprintf(buf + strlen(buf), "\n");
-            LogStr(buf);
+            fs::CloseFile(LogFile);
+            RESTORE_TLS();
         }
     }
-}
 
-void LogStr(const char *str) {
-    BACKUP_TLS();
-    size_t len = strlen(str);
-    if (g_logging_enabled) {
-        mutexLock(&g_file_mutex);
-        FILE *file = fopen("sdmc:/ldn_mitm.log", "ab+");
-        if (file) {
-            fwrite(str, 1, len, file);
-            fclose(file);
-        }
-        mutexUnlock(&g_file_mutex);
+    void LogFormatImpl(const char *fmt, ...)
+    {
+        std::va_list args;
+        va_start(args, fmt);
+        LogStr(fmt, args);
+        va_end(args);
     }
-#if ENABLE_MEMLOG
-    mutexLock(&MemoryLogMutex);
-    if (MemoryLogPos + len >= MemoryLogSize) {
-        size_t dis = 0;
-        for (size_t i = 0; i < MemoryLogSize && MemoryLog[i] != '\0'; i++) {
-            if (MemoryLog[i] == '\n') {
-                dis = i + 1;
-                if (MemoryLogPos - dis + len < MemoryLogSize) break;
-            }
-        }
-        if (dis) {
-            std::memmove(MemoryLog, MemoryLog + dis, MemoryLogSize - dis);
-            MemoryLogPos -= dis;
-        } else {
-            MemoryLogPos = 0;
-        }
-        MemoryLog[MemoryLogPos] = 0;
-    }
-    if (MemoryLogPos + len >= MemoryLogSize) {
-        MemoryLogPos = 0;
-    }
-    std::strcpy(MemoryLog + MemoryLogPos, str);
-    MemoryLogPos += len;
-    mutexUnlock(&MemoryLogMutex);
-#endif
-    RESTORE_TLS();
-}
-
-Result SaveLogToFile() {
-    Result ret = 0xCAFE;
-#if ENABLE_MEMLOG
-    u64 curtime;
-    if (!GetCurrentTime(&curtime)) {
-        return 0xCAFF;
-    }
-    mutexLock(&MemoryLogMutex);
-    FILE *file = fopen("sdmc:/ldn_mitm_memlog.log", "ab+");
-    if (file) {
-        fprintf(file, "ldn_mitm memory log dump\nversion: " ATMOSPHERE_GIT_REVISION "\ntimestamp: %" PRIu64 "\n\n", curtime);
-        fwrite(MemoryLog, 1, MemoryLogPos, file);
-        fclose(file);
-        MemoryLogPos = 0;
-        ret = 0;
-    }
-    mutexUnlock(&MemoryLogMutex);
-#else
-    ret = 0xCAFC;
-#endif
-    return ret;
-}
-
-bool GetCurrentTime(u64 *out) {
-    *out = 0;
-    *out = (armGetSystemTick() * 625 / 12) / 1000000;
-    return true;
 }
