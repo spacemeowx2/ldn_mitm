@@ -31,10 +31,13 @@ jobs:
           popd
       
       - name: Build
+        id: build
         run: make -j8 PREFIX="ccache aarch64-none-elf-"
+        continue-on-error: true
 
       - name: Install libnx master & Retry build
-        if: ${{ failure() }}
+        id: retry
+        if: ${{ steps.build.outcome == 'failure' }}
         run: |
           pushd /tmp
           git clone https://github.com/switchbrew/libnx
