@@ -27,13 +27,19 @@ static std::atomic_bool g_logging_enabled = false;
 Result SetLogging(u32 enabled)
 {
     g_logging_enabled = enabled;
-    return 0;
+    
+    if (g_logging_enabled) {
+        R_TRY(ams::log::Initialize());
+    }
+    
+    R_SUCCEED();
 }
 
 Result GetLogging(u32 *enabled)
 {
     *enabled = g_logging_enabled;
-    return 0;
+    
+    R_SUCCEED();
 }
 
 namespace ams::log
@@ -48,19 +54,21 @@ namespace ams::log
 
     Result Initialize()
     {
-        // Check if log file exists and create it if not
-        bool has_file;
-        R_TRY(fs::HasFile(&has_file, LogFilePath));
-        if (!has_file)
-        {
-            R_TRY(fs::CreateFile(LogFilePath, 0));
+        if (g_logging_enabled) {
+            // Check if log file exists and create it if not
+            bool has_file;
+            R_TRY(fs::HasFile(&has_file, LogFilePath));
+            if (!has_file)
+            {
+                R_TRY(fs::CreateFile(LogFilePath, 0));
+            }
+
+            // Get file write offset
+            R_TRY(fs::OpenFile(&LogFile, LogFilePath, fs::OpenMode_Write | fs::OpenMode_AllowAppend));
+            R_TRY(GetFileSize(&LogOffset, LogFile));
+
+            fs::CloseFile(LogFile);
         }
-
-        // Get file write offset
-        R_TRY(fs::OpenFile(&LogFile, LogFilePath, fs::OpenMode_Write | fs::OpenMode_AllowAppend));
-        R_TRY(GetFileSize(&LogOffset, LogFile));
-
-        fs::CloseFile(LogFile);
 
         R_SUCCEED();
     }
