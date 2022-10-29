@@ -24,7 +24,7 @@ static std::atomic_bool g_logging_enabled = false;
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 
-Result SetLogging(u32 enabled)
+ams::Result SetLogging(u32 enabled)
 {
     g_logging_enabled = enabled;
     
@@ -35,7 +35,7 @@ Result SetLogging(u32 enabled)
     R_SUCCEED();
 }
 
-Result GetLogging(u32 *enabled)
+ams::Result GetLogging(u32 *enabled)
 {
     *enabled = g_logging_enabled;
     

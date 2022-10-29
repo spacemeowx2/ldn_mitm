@@ -19,8 +19,8 @@
 #include <stdio.h>
 #include <cstdarg>
 
-Result SetLogging(u32 enabled);
-Result GetLogging(u32 *enabled);
+ams::Result SetLogging(u32 enabled);
+ams::Result GetLogging(u32 *enabled);
 
 namespace ams::log
 {
