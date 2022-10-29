@@ -7,7 +7,8 @@ namespace ams::mitm::ldn {
 
     Result LdnConfig::GetVersion(sf::Out<LdnMitmVersion> version) {
         std::strcpy(version.GetPointer()->raw, GITDESCVER);
-        return 0;
+        
+        R_SUCCEED();
     }
     Result LdnConfig::GetLogging(sf::Out<u32> enabled) {
         return ::GetLogging(enabled.GetPointer());
@@ -17,10 +18,12 @@ namespace ams::mitm::ldn {
     }
     Result LdnConfig::GetEnabled(sf::Out<u32> enabled) {
         enabled.SetValue(LdnEnabled);
-        return 0;
+        
+        R_SUCCEED();
     }
     Result LdnConfig::SetEnabled(u32 enabled) {
         LdnEnabled = enabled;
-        return 0;
+        
+        R_SUCCEED();
     }
 }
