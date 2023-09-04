@@ -131,7 +131,7 @@ void getLdnMitmConfig() {
     }
 
     printf("error code: 0x%x, 0x%x\n", rc, namedRc);
-    die("ldn_mitm is not loaded or too old(requires ldn_mitm >= v1.1.2)");
+    die("ldn_mitm is not loaded");
 }
 
 int main(int argc, char* argv[]) {
