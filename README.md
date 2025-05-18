@@ -46,7 +46,7 @@ git submodule update --init --recursive
 
 ### Using devkitPro
 
-1. Install [`devkitPro`](https://devkitpro.org/wiki/Getting_Started) and install `switch-dev`, `libnx` using `dkp-pacman`.
+1. Install [`devkitPro`](https://devkitpro.org/wiki/Getting_Started) and install `switch-dev`, `libnx`, `switch-libjpeg-turbo` using `dkp-pacman`.
 
 2. Run `make` command.
 
