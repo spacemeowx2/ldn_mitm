@@ -53,5 +53,5 @@ jobs:
       - name: Upload elf file
         uses: actions/upload-artifact@v4
         with:
-          name: ldn_mitm.elf
+          name: overlay.elf
           path: overlay/overlay.elf
