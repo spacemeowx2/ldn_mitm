@@ -53,14 +53,14 @@ jobs:
           name: sdcard
           path: out/sd
 
-      - name: Upload elf file
+      - name: Upload ldn_mitm elf file
         uses: actions/upload-artifact@v4
         with:
           name: ldn_mitm.elf
           path: ldn_mitm/ldn_mitm.elf
 
-      - name: Upload elf file
+      - name: Upload overlay elf file
         uses: actions/upload-artifact@v4
         with:
-          name: ldn_mitm.elf
+          name: overlay.elf
           path: overlay/overlay.elf
