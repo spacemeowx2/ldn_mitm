@@ -19,6 +19,7 @@
 
 #include "ldnmitm_service.hpp"
 #include "ldn_icommunication.hpp"
+#include "ldn_client_process_monitor.hpp"
 
 namespace ams::mitm::ldn {
 
@@ -26,7 +27,7 @@ namespace ams::mitm::ldn {
 
     LdnMitMService::LdnMitMService(std::shared_ptr<::Service> &&s, const sm::MitmProcessInfo &c) : sf::MitmServiceImplBase(std::forward<std::shared_ptr<::Service>>(s), c)
     {
-        LogFormat("created");
+        LogFormat("LdnMitMService created");
     }
 
     Result LdnMitMService::CreateUserLocalCommunicationService(sf::Out<sf::SharedPointer<ICommunicationInterface>> out) {
@@ -39,6 +40,16 @@ namespace ams::mitm::ldn {
 
         return sm::mitm::ResultShouldForwardToSession();
     }
+
+    Result LdnMitMService::CreateClientProcessMonitor(sf::Out<sf::SharedPointer<IClientProcessMonitorInterface>> out) {
+        LogFormat("CreateClientProcessMonitor called");
+
+        // Always create the monitor, regardless of ldn_mitm being enabled
+        // This is required for firmware 18.0.0+ compatibility (Pokemon Legends Z-A)
+        out.SetValue(sf::CreateSharedObjectEmplaced<IClientProcessMonitorInterface, IClientProcessMonitor>());
+        return 0;
+    }
+
     Result LdnMitMService::CreateLdnMitmConfigService(sf::Out<sf::SharedPointer<ILdnConfig>> out) {
         out.SetValue(sf::CreateSharedObjectEmplaced<ILdnConfig, LdnConfig>());
         return 0;
