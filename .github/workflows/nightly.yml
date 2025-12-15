@@ -48,19 +48,19 @@ jobs:
           make -j8 PREFIX="ccache aarch64-none-elf-"
 
       - name: Upload built files
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: sdcard
           path: out/sd
 
       - name: Upload ldn_mitm elf file
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ldn_mitm.elf
           path: ldn_mitm/ldn_mitm.elf
 
       - name: Upload overlay elf file
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: overlay.elf
           path: overlay/overlay.elf
