@@ -1,0 +1,4 @@
+﻿# generated / build output
+verify/harness/libnx_include/
+verify/*.exe
+verify/out.txt
