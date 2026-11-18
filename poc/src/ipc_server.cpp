@@ -1,5 +1,7 @@
 #include "ipc_server.hpp"
 
+#include "sm_mitm.h"
+
 #include <cstring>
 
 namespace ldn_nx {
@@ -414,6 +416,47 @@ Result IpcServer::ProcessSession(Handle session_handle) {
     return reply.Finish(rc);
 }
 
+Result IpcServer::AttachSession(Handle server_handle, ServerObject *object) {
+    return this->RegisterSession(server_handle, object, false, 0, 0);
+}
+
+Result IpcServer::AcceptMitmSession() {
+    if (m_port == 0) {
+        return 1;
+    }
+
+    Handle session_handle = 0;
+    if (R_FAILED(svcAcceptSession(&session_handle, m_port))) {
+        return 1;
+    }
+
+    /* Ask sm who the client is and for the session to the real service. */
+    Handle forward_handle = 0;
+    LdnMitmProcessInfo process_info{};
+    if (R_FAILED(ldn_sm_mitm_acknowledge(&forward_handle, &process_info, m_name))) {
+        svcCloseHandle(session_handle);
+        return 1;
+    }
+
+    MitmClientInfo client_info{};
+    client_info.process_id = process_info.process_id;
+    client_info.program_id = process_info.program_id;
+
+    ServerObject *object = this->CreateMitmObject(forward_handle, client_info);
+    if (object == nullptr) {
+        svcCloseHandle(session_handle);
+        return 1;
+    }
+
+    if (R_FAILED(this->RegisterSession(session_handle, object, true, forward_handle, client_info.process_id))) {
+        svcCloseHandle(session_handle);
+        delete object;
+        return 1;
+    }
+
+    return 0;
+}
+
 void IpcServer::Run() {
     if (m_port == 0) {
         return;
@@ -427,12 +470,7 @@ void IpcServer::Run() {
         }
 
         if (handle == m_port) {
-            Handle new_session = 0;
-            if (R_SUCCEEDED(svcAcceptSession(&new_session, m_port))) {
-                /* The mitm owner must acknowledge the client session with sm to
-                 * obtain the forward service + client identity. */
-                this->OnAcceptMitmSession(new_session);
-            }
+            this->AcceptMitmSession();
             continue;
         }
 

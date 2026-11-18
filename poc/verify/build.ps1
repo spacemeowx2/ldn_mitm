@@ -93,7 +93,9 @@ if ($Verbose) { $env:LDN_TEST_VERBOSE = "1" } else { Remove-Item Env:\LDN_TEST_V
 
 $sources = @(
     (Join-Path $here    "harness\mock_kernel.cpp"),
+    (Join-Path $here    "harness\mock_sm.cpp"),
     (Join-Path $pocRoot "src\ipc_server.cpp"),
+    (Join-Path $pocRoot "src\sm_mitm.c"),
     (Join-Path $here    "tests\main.cpp")
 )
 

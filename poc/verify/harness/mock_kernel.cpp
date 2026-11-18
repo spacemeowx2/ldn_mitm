@@ -46,6 +46,8 @@ void Kernel::Reset() {
     m_pairs_by_server.clear();
     m_ports.clear();
     m_named_ports.clear();
+    m_mitm_ports.clear();
+    m_default_handler = nullptr;
     m_next_session = SessionBase;
     m_next_port = PortBase;
     m_failures = 0;
@@ -90,6 +92,15 @@ void Kernel::EnqueueOnPort(Handle port_handle, Handle client_handle) {
     }
 }
 
+void Kernel::SetMitmPort(const char *service_name, Handle port_handle) {
+    m_mitm_ports[service_name] = port_handle;
+    Log("mitm installed for '%s' -> port %#x", service_name, port_handle);
+}
+
+void Kernel::ClearMitmPort(const char *service_name) {
+    m_mitm_ports.erase(service_name);
+}
+
 SessionPair *Kernel::GetPairByClient(Handle h) {
     auto it = m_pairs_by_client.find(h);
     return it == m_pairs_by_client.end() ? nullptr : it->second;
@@ -124,6 +135,15 @@ size_t Kernel::LiveHandleCount() const {
 }
 
 Handle Kernel::ConnectToNamedPort(const char *name) {
+    /* A registered mitm takes precedence over the real service, exactly like
+     * sm routes the connection to the mitm port. */
+    auto mitm = m_mitm_ports.find(name);
+    if (mitm != m_mitm_ports.end()) {
+        const Handle client = CreatePair(name);
+        EnqueueOnPort(mitm->second, client);
+        return client;
+    }
+
     auto it = m_named_ports.find(name);
     if (it == m_named_ports.end()) {
         Fail("ConnectToNamedPort: unknown port");
@@ -168,6 +188,7 @@ Result Kernel::AcceptSession(Handle *out, Handle port_handle) {
         Fail("AcceptSession: stale client handle");
         return 1;
     }
+    pair->pending_accept = false;
     *out = pair->server_handle;
     return 0;
 }

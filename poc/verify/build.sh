@@ -5,7 +5,9 @@
 # It compiles:
 #   - tests/main.cpp          : test cases, written as a *client* using real libnx
 #   - src/ipc_server.cpp      : our libnx-only CMIF server (the code under test)
+#   - src/sm_mitm.c           : our libnx-only sm mitm client (code under test)
 #   - harness/mock_kernel.cpp : simulated kernel (sessions, ports, TLS)
+#   - harness/mock_sm.cpp     : simulated sm (TIPC wire format)
 #
 # against a mirrored copy of libnx's headers in which only switch/arm/tls.h and
 # BITL() are patched (both explained in build.ps1).
@@ -14,6 +16,7 @@
 #   ./build.sh                # sync headers + build + run
 #   SYNC=0 ./build.sh         # skip header mirror
 #   LIBNX=/path/to/libnx/nx/include ./build.sh
+#   LDN_TEST_VERBOSE=1 ./build.sh
 #
 set -euo pipefail
 
@@ -63,7 +66,9 @@ cxx="${CXX:-g++}"
     -I "$poc_root/src" \
     -I "$here/harness" \
     "$here/harness/mock_kernel.cpp" \
+    "$here/harness/mock_sm.cpp" \
     "$poc_root/src/ipc_server.cpp" \
+    "$poc_root/src/sm_mitm.c" \
     "$here/tests/main.cpp" \
     -o "$here/ipc_tests"
 

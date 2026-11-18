@@ -134,6 +134,13 @@ public:
 /* ------------------------------------------------------------------------- */
 /* Server                                                                    */
 /* ------------------------------------------------------------------------- */
+
+/* The client identity sm reports when a mitm session is acknowledged. */
+struct MitmClientInfo {
+    u64 process_id = 0;
+    u64 program_id = 0;
+};
+
 class IpcServer {
 public:
     static constexpr size_t MaxSessions      = 6;
@@ -144,6 +151,15 @@ public:
 
     /* Attach the mitm port handle returned by sm's InstallMitm. */
     void AttachPort(Handle port, const char *name);
+
+    /* Accept one pending client on the mitm port, acknowledge it with sm and
+     * register the resulting session. The real target loop calls this from
+     * Run(); tests call it directly to keep the mock kernel synchronous. */
+    Result AcceptMitmSession();
+
+    /* Serve a session that is not reached through the port (e.g. the mitm
+     * ShouldMitm query session handed to us by InstallMitm). */
+    Result AttachSession(Handle server_handle, ServerObject *object);
 
     /* The real target loop: accepts clients, dispatches, replies. */
     void Run();
@@ -162,10 +178,13 @@ public:
     Handle GetPortHandle() const { return m_port; }
 
 protected:
-    /* Called when sm hands us a new client session on the mitm port. The
-     * implementation must acknowledge the session with sm (see sm_mitm.*) and
-     * then call RegisterSession(). */
-    virtual void OnAcceptMitmSession(Handle session_handle) { (void)session_handle; }
+    /* Builds the service object that serves one acknowledged mitm client.
+     * Ownership passes to the server. */
+    virtual ServerObject *CreateMitmObject(Handle forward_session, const MitmClientInfo &client_info) {
+        (void)forward_session;
+        (void)client_info;
+        return nullptr;
+    }
 
 private:
     struct Session {

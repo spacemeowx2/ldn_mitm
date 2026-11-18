@@ -1,4 +1,5 @@
 ﻿# generated / build output
 verify/harness/libnx_include/
-verify/*.exe
-verify/out.txt
+ipc_tests
+*.exe
+out.txt

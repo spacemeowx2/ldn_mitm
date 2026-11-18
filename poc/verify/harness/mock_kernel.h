@@ -82,6 +82,11 @@ public:
     /* Queues an existing pair's client side onto a port (client "connected"). */
     void EnqueueOnPort(Handle port_handle, Handle client_handle);
 
+    /* Routes every connection to `service_name` through `port_handle` (this is
+     * what sm does once a mitm is installed for that name). */
+    void SetMitmPort(const char *service_name, Handle port_handle);
+    void ClearMitmPort(const char *service_name);
+
     SessionPair *GetPairByClient(Handle h);
     SessionPair *GetPairByServer(Handle h);
 
@@ -118,6 +123,7 @@ private:
     std::unordered_map<Handle, SessionPair *> m_pairs_by_server;
     std::unordered_map<Handle, PortObject *> m_ports;
     std::unordered_map<std::string, ConnectCallback> m_named_ports;
+    std::unordered_map<std::string, Handle> m_mitm_ports;
     std::vector<SessionPair *> m_pairs;
     std::vector<PortObject *> m_port_objects;
 

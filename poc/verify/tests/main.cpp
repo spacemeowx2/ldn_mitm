@@ -14,7 +14,10 @@
 #include <cstring>
 
 #include "ipc_server.hpp"
+#include "mitm_query_service.hpp"
 #include "mock_kernel.h"
+#include "mock_sm.h"
+#include "sm_mitm.h"
 
 namespace {
 
@@ -303,6 +306,167 @@ void TestSessionClose() {
     EndCase();
 }
 
+/* ------------------------------------------------------------------------- */
+/* Mitm chain: mock sm + our sm client + our server + the real service        */
+/* ------------------------------------------------------------------------- */
+
+/* The service the client gets from CreateUserLocalCommunicationService. */
+class CommunicationService : public ldn_nx::ServerObject {
+public:
+    Result Invoke(ldn_nx::Request &req, ldn_nx::Reply &reply) override {
+        if (req.cmd_id == 5) {
+            auto *out = reply.Out<u32>();
+            *out = 0x5555;
+            return 0;
+        }
+        return 0x7777;
+    }
+};
+
+/* The mitm service registered for ldn:u. */
+class MitmService : public ldn_nx::ServerObject {
+public:
+    explicit MitmService(Handle forward) : m_forward(forward) {}
+
+    Result Invoke(ldn_nx::Request &req, ldn_nx::Reply &reply) override {
+        switch (req.cmd_id) {
+            case 0:   /* CreateUserLocalCommunicationService */
+                reply.AddObject(new CommunicationService());
+                return 0;
+            case 2:   /* let the server forward this one to the real service */
+                return ldn_nx::ResultShouldForwardToSession;
+            default:
+                return 0x7777;
+        }
+    }
+
+    Handle m_forward;
+};
+
+class TestMitmServer : public ldn_nx::IpcServer {
+public:
+    ldn_nx::ServerObject *CreateMitmObject(Handle forward_session, const ldn_nx::MitmClientInfo &client_info) override {
+        forward_handle = forward_session;
+        client_info_seen = client_info;
+        ++num_accepted;
+        return new MitmService(forward_session);
+    }
+
+    Handle forward_handle = 0;
+    ldn_nx::MitmClientInfo client_info_seen{};
+    int num_accepted = 0;
+};
+
+class TestQueryService : public ldn_nx::MitmQueryService {
+public:
+    bool ShouldMitm(const ldn_nx::MitmClientInfo &) override { return true; }
+};
+
+/* Full mitm chain: install (real sm protocol) -> client connects -> accept +
+ * acknowledge -> dispatch -> forward to the real service. */
+void TestMitmFullChain() {
+    StartCase("mitm: install -> accept -> acknowledge -> dispatch -> forward");
+    {
+        ldn_nx::IpcServer real_server;
+
+        /* The service sitting behind the mitm. */
+        auto factory = [&real_server]() -> Handle {
+            const Handle client = mock::K().CreatePair("real-ldn");
+            const Handle server = mock::K().GetPairByClient(client)->server_handle;
+            real_server.RegisterSession(server, new RealLdnService(), false, 0, 0);
+            mock::K().SetHandler(server, [&real_server](Handle h) { return real_server.ProcessSession(h); });
+            return client;
+        };
+        mock::InstallMockSm(factory);
+
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_initialize()));
+
+        Handle port = 0, query = 0;
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_install(&port, &query, "ldn:u")));
+        CHECK(port != 0);
+
+        TestMitmServer server;
+        server.AttachPort(port, "ldn:u");
+
+        /* Sessions accepted from the port, and sessions created for out
+         * objects, are served by the same server. */
+        mock::K().SetDefaultHandler([&server](Handle h) { return server.ProcessSession(h); });
+
+        /* The mitm must serve the ShouldMitm query session as well. */
+        auto *query_service = new TestQueryService();
+        CHECK(R_SUCCEEDED(server.AttachSession(query, query_service)));
+
+        /* A game connects to ldn:u; sm routes it to the mitm port. */
+        Handle client = 0;
+        CHECK(R_SUCCEEDED(svcConnectToNamedPort(&client, "ldn:u")));
+
+        /* The mitm loop accepts it and acknowledges with sm. */
+        CHECK(R_SUCCEEDED(server.AcceptMitmSession()));
+        CHECK_EQ(server.num_accepted, 1);
+        CHECK_EQ(server.client_info_seen.process_id, 0x00000000CAFEBABEull);
+        CHECK(server.forward_handle != 0);
+
+        /* From here on this is an ordinary client session. */
+        Service s{};
+        serviceCreate(&s, client);
+        CHECK(serviceIsActive(&s));
+
+        /* CreateUserLocalCommunicationService returns an object. */
+        Service comm{};
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 0, .out_num_objects = 1, .out_objects = &comm)));
+        CHECK(serviceIsActive(&comm));
+
+        u32 out = 0;
+        CHECK(R_SUCCEEDED(serviceDispatchInOut(&comm, 5, out, out)));
+        CHECK_EQ(out, 0x5555u);
+
+        /* A command we do not implement is forwarded to the real service and
+         * its reply comes back untouched. */
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 2)));
+        {
+            const HipcResponse hp = hipcParseResponse(armGetTls());
+            auto *out_header = reinterpret_cast<CmifOutHeader *>(
+                cmifGetAlignedDataStart(hp.data_words, armGetTls()));
+            CHECK_EQ(out_header->magic, ldn_nx::CmifOutHeaderMagic);
+            const u32 *payload = reinterpret_cast<const u32 *>(out_header + 1);
+            CHECK_EQ(*payload, 0xCAFEu);
+        }
+
+        serviceClose(&comm);
+        serviceClose(&s);
+
+        /* sm can ask the mitm whether it wants a client. */
+        Service qs{};
+        serviceCreate(&qs, mock::GetSmQueryClient());
+        ldn_nx::MitmClientInfo info{};
+        info.process_id = 0x1234;
+        bool should = false;
+        CHECK(R_SUCCEEDED(serviceDispatchInOut(&qs, ldn_nx::MitmQueryCommandShouldMitm, info, should)));
+        CHECK(should);
+        serviceClose(&qs);
+
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_uninstall("ldn:u")));
+
+        /* After uninstall a new connection reaches the real service again. */
+        Handle client2 = 0;
+        CHECK(R_SUCCEEDED(svcConnectToNamedPort(&client2, "ldn:u")));
+        {
+            Service real{};
+            serviceCreate(&real, client2);
+            CHECK(R_SUCCEEDED(serviceDispatch(&real, 2)));
+            const HipcResponse hp = hipcParseResponse(armGetTls());
+            auto *out_header = reinterpret_cast<CmifOutHeader *>(
+                cmifGetAlignedDataStart(hp.data_words, armGetTls()));
+            const u32 *payload = reinterpret_cast<const u32 *>(out_header + 1);
+            CHECK_EQ(*payload, 0xCAFEu);
+            serviceClose(&real);
+        }
+
+        ldn_sm_mitm_finalize();
+    }
+    EndCase();
+}
+
 } // namespace
 
 int main() {
@@ -317,6 +481,7 @@ int main() {
     TestDomainOutObject();
     TestForwardToSession();
     TestSessionClose();
+    TestMitmFullChain();
 
     std::printf("\n%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
