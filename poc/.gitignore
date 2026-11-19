@@ -1,0 +1,18 @@
+# sysmodule build output
+build/
+
+# host verification builds
+verify/ipc_tests
+verify/ipc_tests.exe
+verify/fuzz_run
+verify/fuzz_run.exe
+
+# object files / scratch output
+*.o
+*.exe
+verify/out.txt
+verify/err.txt
+
+# libnx headers are mirrored by verify/build.sh from $LIBNX (only two lines are
+# patched, see the comments there) -- never commit the copy.
+verify/harness/libnx_include/
