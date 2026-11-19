@@ -18,7 +18,9 @@
 | `ShouldMitm` 查询会话 | ✅ `src/mitm_query_service.hpp` |
 | 业务逻辑（LANDiscovery / LANProtocol / types） | ✅ 已去掉 stratosphere 依赖 |
 | 日志（原 `ams::log` → `ams::fs`） | ✅ 改为可插拔 sink |
-| host 端端到端测试 | ✅ **124 checks, 0 failures**（Linux + Windows） |
+| host 端端到端测试 | ✅ **155 checks, 0 failures**（Linux + Windows） |
+| 真实 accept 循环（多线程） | ✅ Run() 跑在独立线程上，客户端走完整环路 |
+| 与 Atmosphere 的字节级差分 | ✅ sm mitm 客户端 wire 格式逐字节一致 |
 | aarch64 交叉编译（全部源文件） | ✅ `verify/cross_check.sh` |
 | aarch64 **链接出真实 ELF** | ✅ `make` → `build/ldn_mitm_poc.elf`（text 209 KB） |
 | 打包可部署的 `exefs.nsp` | ✅ `make nsp` → 145 KB（原实现 169 KB） |
@@ -76,8 +78,10 @@ $ ./build.sh
 [case] session close
 [case] mitm: install -> accept -> acknowledge -> dispatch -> forward
 [case] ldn services: config / monitor / communication commands
+[case] accept loop: real Run() thread, client over the wire
+[case] parity: our sm mitm client vs Atmosphere's, byte for byte
 
-124 checks, 0 failures
+155 checks, 0 failures
 
 $ ./cross_check.sh
   debug.cpp                    OK
@@ -120,6 +124,29 @@ $ make
 
 ---
 
+### 与 Atmosphere 的差分测试（固定版本）
+
+`verify/harness/atmosphere_ref/` 是 Atmosphere 源码的**固定副本**（commit 写在它的
+`README.md` 里），只包含纯 libnx 的 sm mitm 客户端：
+
+```
+libraries/libstratosphere/source/service_guard.h
+libraries/libstratosphere/source/sm/sm_ams.os.horizon.c
+libraries/libstratosphere/source/sm/sm_ams.os.horizon.h
+```
+
+它按 C 编译（有 `_Static_assert`、隐式 `void*` 转换），和我们的实现一起链进测试程序。
+`TestSmClientParity` 让两个客户端对着同一个模拟 sm 跑同样的 install / uninstall /
+acknowledge，把发出的 TIPC 报文逐字节比较：命令号、参数排布、pid 标志任何一个变了都会失败。
+回复的解析结果也比对（`MitmProcessInfo`）。
+
+升级 Atmosphere 后刷新副本：
+
+```sh
+./verify/sync_atmosphere_ref.sh /path/to/Atmosphere
+```
+
+上游确实改了 wire 格式时这个测试会失败——这是设计意图，不是噪音。
 ## 目录
 
 ```
@@ -136,11 +163,13 @@ poc/
   verify/
     build.sh / build.ps1  # host 端到端测试
     cross_check.sh        # aarch64 全量交叉编译
+    sync_atmosphere_ref.sh # 刷新固定版本的 Atmosphere 参考实现
     harness/
       mock_kernel.*       # 模拟内核：session/port/TLS/handle/mitm 路由/低地址分配
       mock_sm.*           # 模拟 sm：TIPC 线格式
       fake_lan_discovery.*# 脚本化的 LAN 替身（host 用）
       libnx_host_runtime.*# libnx 的 .c 部分（event 等）+ nifm 桩
+      atmosphere_ref/     # 固定版本的 Atmosphere sm 客户端（差分基准）
       hostshim/           # newlib <sys/lock.h>、<arm_acle.h>、<poll.h>
     tests/main.cpp        # 用例
 ```

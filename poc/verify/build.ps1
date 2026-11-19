@@ -3,21 +3,25 @@
     Host-side verification build for the libnx-only PoC.
 
     Pipeline:
-      1. mirror libnx's headers (only switch/arm/tls.h and BITL are patched,
+      1. mirror libnx's headers (only switch/arm/tls.h and BITL() are patched,
          both documented below)
       2. compile tests/main.cpp (a *client* written against real libnx:
-         service.h / cmif.h / hipc.h) + src/ipc_server.cpp (the code under
-         test) + harness/mock_kernel.cpp (simulated kernel)
+         service.h / cmif.h / hipc.h) + src/*.cpp (the code under test) +
+         harness/* (simulated kernel and sm)
       3. run the resulting exe
+
+    harness/atmosphere_ref/ is a pinned copy of Atmosphere's sm mitm client. It
+    is built as C and linked in so TestSmClientParity can compare our client's
+    wire bytes against the reference implementation's.
 
     Usage:
       powershell -ExecutionPolicy Bypass -File verify/build.ps1
       powershell -ExecutionPolicy Bypass -File verify/build.ps1 -NoSync
-      powershell -ExecutionPolicy Bypass -File verify/build.ps1 -Verbose   (mock kernel log)
+      powershell -ExecutionPolicy Bypass -File verify/build.ps1 -Verbose
 
     The MinGW toolchain is expected at toolchain\msys\mingw64 (see
     verify/extract_toolchain.ps1); it only needs to be a GCC that can compile
-    GNU C++17 -- nothing from devkitPro is required for the host build.
+    GNU C11 / C++17 -- nothing from devkitPro is required for the host build.
 #>
 param(
     [string]$LibNx        = "C:\Users\space\project\libnx\nx\include",
@@ -33,6 +37,7 @@ $pocRoot = Split-Path -Parent $here
 $includeDir = Join-Path $here "harness\libnx_include"
 $exe     = Join-Path $here "ipc_tests.exe"
 $gxx     = Join-Path $ToolchainDir "bin\g++.exe"
+$gcc     = Join-Path $ToolchainDir "bin\gcc.exe"
 $libDir  = Join-Path $ToolchainDir "lib"
 
 function Sync-LibNxHeaders {
@@ -91,6 +96,19 @@ if (-not (Test-Path $gxx)) {
 $env:PATH = "$(Join-Path $ToolchainDir 'bin');$env:PATH"
 if ($Verbose) { $env:LDN_TEST_VERBOSE = "1" } else { Remove-Item Env:\LDN_TEST_VERBOSE -ErrorAction SilentlyContinue }
 
+$refDir = Join-Path $here "harness\atmosphere_ref"
+$refObj = Join-Path $includeDir "atmosphere_ref_sm.o"
+
+$includes = @(
+    "-I", $includeDir,
+    "-I", (Join-Path $here "harness\hostshim"),
+    "-I", $refDir,
+    "-I", (Join-Path $refDir "sm"),
+    "-I", (Join-Path $pocRoot "src"),
+    "-I", (Join-Path $here "harness")
+)
+$warnings = @("-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-missing-field-initializers")
+
 $sources = @(
     (Join-Path $here    "harness\mock_kernel.cpp"),
     (Join-Path $here    "harness\mock_sm.cpp"),
@@ -104,20 +122,23 @@ $sources = @(
     (Join-Path $here    "tests\main.cpp")
 )
 
-$arguments = @(
-    "-std=gnu++17", "-O1", "-g", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-missing-field-initializers",
-    "-I", $includeDir,
-    "-I", (Join-Path $here "harness\hostshim"),
-    "-I", (Join-Path $pocRoot "src"),
-    "-I", (Join-Path $here "harness"),
-    "-L", $libDir
-) + $sources + @("-o", $exe)
-
-Write-Host "compiling with $gxx"
 # Native commands write diagnostics on stderr; do not let that abort the script.
 $nativePref = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-& $gxx @arguments
+
+# The Atmosphere reference is C (_Static_assert, implicit void* casts).
+Write-Host "compiling the Atmosphere reference client (C)"
+& $gcc -std=gnu11 -O1 -g -DATMOSPHERE_OS_HORIZON @warnings @includes `
+    -c (Join-Path $refDir "sm\sm_ams.os.horizon.c") -o $refObj
+$refExit = $LASTEXITCODE
+if ($refExit -ne 0) {
+    $ErrorActionPreference = $nativePref
+    throw "reference compile failed ($refExit)"
+}
+
+Write-Host "compiling the PoC ($gxx)"
+& $gxx -std=gnu++17 -O1 -g -DATMOSPHERE_OS_HORIZON @warnings @includes -L $libDir `
+    @sources $refObj -o $exe
 $compileExit = $LASTEXITCODE
 $ErrorActionPreference = $nativePref
 if ($compileExit -ne 0) {

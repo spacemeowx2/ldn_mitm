@@ -7,30 +7,32 @@
  * protocol layer can be validated without hardware.
  *
  * Faithful bits:
- *   - one TLS message buffer, message starts at armGetTls() + 0
- *   - svcSendSyncRequest delivers the request to the *server side* of the
- *     session, which processes it in place and writes the reply into the same
- *     buffer (exactly what the kernel does with the server thread's TLS)
- *   - sessions are (client handle, server handle) pairs; a port queues
- *     accepted-pending client sessions until svcAcceptSession()
+ *   - one TLS message buffer per thread, message starts at armGetTls() + 0
+ *   - svcSendSyncRequest hands the request to the server side of the session:
+ *       * if the session has a handler installed, it runs inline (this is the
+ *         convenience mode used by the protocol tests)
+ *       * otherwise the request is queued and the caller blocks until a server
+ *         thread picks it up in svcReplyAndReceive() and replies, which is what
+ *         the real accept/dispatch loop does
+ *   - ports queue connected clients until svcAcceptSession()
  *   - mitm routing: connecting to a named port that has a registered mitm
  *     yields a session served by the mitm instead of the real service
  *
  * Simplifications (documented, not hidden):
- *   - handles are process-global instead of per-process, so "move handle"
- *     transfer is a no-op (the value stays valid)
- *   - single-threaded / synchronous: the server is invoked from inside the
- *     client's svcSendSyncRequest call instead of a real server thread
+ *   - handles are process-global instead of per-process, so handle transfer is
+ *     a no-op (the value stays valid)
  */
 #pragma once
 
 #include <switch/types.h>
 #include <switch/result.h>
 
+#include <condition_variable>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -48,10 +50,18 @@ struct SessionPair {
     std::string name;
     Handle client_handle = InvalidHandle;
     Handle server_handle = InvalidHandle;
-    /* Set once a server takes ownership of the server side. */
-    std::function<Result(Handle server_handle)> handler;
+
+    /* Convenience mode: run inline on the caller's thread. */
+    std::function<Result(Handle)> handler;
+
+    /* Threaded mode: a request waits in `message` until a server thread takes
+     * it in svcReplyAndReceive() and posts the reply back. */
+    bool request_pending = false;
+    bool reply_ready = false;
+    bool closed = false;
+    u8 message[TlsMessageBufferSize] = {};
+
     bool pending_accept = false;
-    /* Fake client identity, reported through AcknowledgeMitmSession. */
     u64 client_pid = 0;
     u64 client_program_id = 0;
 };
@@ -68,18 +78,11 @@ public:
     void Reset();
 
     /* --- test-facing helpers -------------------------------------------- */
-    /* Registers a named port. `on_connect` must produce the server side of a
-     * new session (usually by calling AcceptIntoPort / CreatePair). */
     using ConnectCallback = std::function<Handle(const char *name)>;
     void RegisterNamedPort(const char *name, ConnectCallback cb);
 
-    /* Creates an unattached session pair; returns the client handle. */
     Handle CreatePair(const std::string &name);
-
-    /* Creates a port object and returns its handle. */
     Handle CreatePort(const char *name);
-
-    /* Queues an existing pair's client side onto a port (client "connected"). */
     void EnqueueOnPort(Handle port_handle, Handle client_handle);
 
     /* Routes every connection to `service_name` through `port_handle` (this is
@@ -90,14 +93,9 @@ public:
     SessionPair *GetPairByClient(Handle h);
     SessionPair *GetPairByServer(Handle h);
 
-    /* Installs the handler for a server-side session handle. */
     void SetHandler(Handle server_handle, std::function<Result(Handle)> handler);
-
-    /* Handler used for sessions created through svcCreateSession (i.e. the
-     * server side of an out object). */
     void SetDefaultHandler(std::function<Result(Handle)> handler);
 
-    /* Number of currently live sessions (for leak checks). */
     size_t LiveSessionCount() const;
     size_t LiveHandleCount() const;
 
@@ -107,13 +105,23 @@ public:
     Result AcceptSession(Handle *out, Handle port_handle);
     Result CreateSession(Handle *server, Handle *client);
     Result CloseHandle(Handle h);
+    Result ReplyAndReceive(s32 *index, const Handle *handles, s32 handle_count, Handle reply_target);
 
-    /* Kernel event objects (fake handles; the mock only signals them). */
+    u8 *Tls();
+
+    /* Byte image of the last request, captured before dispatch. Used by the
+     * differential test against Atmosphere's own sm client. */
+    const u8 *LastRequest(size_t *out_size);
+
+    /* Looks back through recent requests for one whose HIPC type matches
+     * (TIPC encodes the command id as type + 16). */
+    bool FindLastRequest(u32 type, u8 *out, size_t capacity, size_t *out_size);
+    size_t LastRequestSize();
+
+    /* Kernel events (fake handles; the mock only signals them). */
     Handle CreateEventPair();
     bool IsEventHandle(Handle h) const;
     int SignalCount(Handle h) const;
-
-    u8 *Tls() { return m_tls; }
 
     /* --- diagnostics ----------------------------------------------------- */
     void SetVerbose(bool v) { m_verbose = v; }
@@ -124,6 +132,12 @@ public:
 private:
     Kernel() = default;
 
+    SessionPair *FindPairByHandleLocked(Handle h, bool want_server);
+    PortObject *FindPortLocked(Handle h);
+
+    mutable std::mutex m_mutex;
+    std::condition_variable m_cv;
+
     std::unordered_map<Handle, SessionPair *> m_pairs_by_client;
     std::unordered_map<Handle, SessionPair *> m_pairs_by_server;
     std::unordered_map<Handle, PortObject *> m_ports;
@@ -131,15 +145,20 @@ private:
     std::unordered_map<std::string, Handle> m_mitm_ports;
     std::vector<SessionPair *> m_pairs;
     std::vector<PortObject *> m_port_objects;
-
     std::unordered_map<Handle, int> m_events;
-    Handle m_next_event = 0x9000;
 
+    Handle m_next_event = 0x9000;
     Handle m_next_session = SessionBase;
     Handle m_next_port = PortBase;
 
-    alignas(0x100) u8 m_tls[TlsMessageBufferSize] = {};
     std::function<Result(Handle)> m_default_handler;
+    struct CapturedRequest { u32 type; size_t size; u8 bytes[TlsMessageBufferSize]; };
+    static constexpr size_t MaxCapturedRequests = 16;
+    CapturedRequest m_captured[MaxCapturedRequests] = {};
+    size_t m_captured_count = 0;
+    u8 m_last_request[TlsMessageBufferSize] = {};
+    size_t m_last_request_size = 0;
+
     bool m_verbose = false;
     int m_failures = 0;
 };

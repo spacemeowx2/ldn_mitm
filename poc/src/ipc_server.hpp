@@ -18,6 +18,7 @@
 
 #include <switch.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 
@@ -190,8 +191,14 @@ public:
      * ShouldMitm query session handed to us by InstallMitm). */
     Result AttachSession(Handle server_handle, ServerObject *object);
 
-    /* The real target loop: accepts clients, dispatches, replies. */
+    /* The real target loop: accepts clients, dispatches, replies. It waits on
+     * the mitm port plus every session it is serving (what libstratosphere did
+     * with an os::MultiWait). Returns when Stop() is called. */
     void Run();
+
+    /* Asks Run() to return. The caller is responsible for making the wait set
+     * wake up (closing the port does it). */
+    void Stop() { m_stop = true; }
 
     /* Test entry point / shared logic: handle exactly one incoming message on
      * `session_handle`. The request is expected to already be in the TLS
@@ -242,6 +249,7 @@ private:
     Session m_sessions[MaxSessions] = {};
     Handle  m_port = 0;
     char    m_name[9] = {};
+    std::atomic<bool> m_stop{false};
 };
 
 } // namespace ldn_nx

@@ -11,6 +11,9 @@
 
 #include <cstdio>
 #include <cstdlib>
+/* MinGW's <thread> references ::nanosleep; the host shim provides it. */
+extern "C" int nanosleep(const struct timespec *req, struct timespec *rem);
+#include <thread>
 #include <cstring>
 
 #include "ipc_server.hpp"
@@ -18,6 +21,11 @@
 #include "mock_kernel.h"
 #include "mock_sm.h"
 #include "sm_mitm.h"
+
+/* Pinned Atmosphere reference client (see harness/atmosphere_ref/README.md). */
+#include "sm_ams.os.horizon.h"
+
+#include <vector>
 #include "fake_lan_discovery.h"
 #include "ldn_services.hpp"
 
@@ -677,6 +685,176 @@ void TestLdnServices() {
     EndCase();
 }
 
+/* ------------------------------------------------------------------------- */
+/* Accept loop: the real Run() on its own thread                             */
+/* ------------------------------------------------------------------------- */
+void TestAcceptLoop() {
+    StartCase("accept loop: real Run() thread, client over the wire");
+    {
+        ldn_nx::IpcServer real_server;
+        auto factory = [&real_server]() -> Handle {
+            const Handle client = mock::K().CreatePair("real-ldn");
+            const Handle server = mock::K().GetPairByClient(client)->server_handle;
+            real_server.RegisterSession(server, new RealLdnService(), false, 0, 0);
+            mock::K().SetHandler(server, [&real_server](Handle h) { return real_server.ProcessSession(h); });
+            return client;
+        };
+        mock::InstallMockSm(factory);
+
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_initialize()));
+
+        Handle port = 0, query = 0;
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_install(&port, &query, "ldn:u")));
+
+        TestMitmServer server;
+        server.AttachPort(port, "ldn:u");
+        server.AttachSession(query, new TestQueryService());
+
+        /* The sysmodule's real loop, on its own thread. It blocks in
+         * svcReplyAndReceive() until a client shows up. */
+        std::thread loop([&server]() { server.Run(); });
+
+        Handle client = 0;
+        CHECK(R_SUCCEEDED(svcConnectToNamedPort(&client, "ldn:u")));
+
+        Service s{};
+        serviceCreate(&s, client);
+        CHECK(serviceIsActive(&s));
+
+        Service comm{};
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 0, .out_num_objects = 1, .out_objects = &comm)));
+        CHECK(serviceIsActive(&comm));
+
+        u32 out = 0;
+        CHECK(R_SUCCEEDED(serviceDispatchInOut(&comm, 5, out, out)));
+        CHECK_EQ(out, 0x5555u);
+
+        /* Forwarded to the real service, through the loop thread. */
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 2)));
+        {
+            const HipcResponse hp = hipcParseResponse(armGetTls());
+            auto *out_header = reinterpret_cast<CmifOutHeader *>(
+                cmifGetAlignedDataStart(hp.data_words, armGetTls()));
+            const u32 *payload = reinterpret_cast<const u32 *>(out_header + 1);
+            CHECK_EQ(*payload, 0xCAFEu);
+        }
+
+        CHECK_EQ(server.num_accepted, 1);
+
+        serviceClose(&comm);
+        serviceClose(&s);
+
+        /* Stop the loop: ask it to return, then unblock the wait. */
+        server.Stop();
+        mock::K().CloseHandle(port);
+        loop.join();
+
+        ldn_sm_mitm_finalize();
+    }
+    EndCase();
+}
+
+/* ------------------------------------------------------------------------- */
+/* Differential test: our sm client vs Atmosphere's (pinned reference)        */
+/* ------------------------------------------------------------------------- */
+void TestSmClientParity() {
+    StartCase("parity: our sm mitm client vs Atmosphere's, byte for byte");
+    {
+        /* The reference client's serviceCreate() queries the pointer buffer size
+         * on the returned session, so the fake real service must answer. */
+        mock::InstallMockSm([]() -> Handle {
+            const Handle client = mock::K().CreatePair("real-ldn");
+            const Handle server = mock::K().GetPairByClient(client)->server_handle;
+            mock::K().SetHandler(server, [](Handle) {
+                std::memset(armGetTls(), 0, 0x100);
+                return 0;
+            });
+            return client;
+        });
+        /* The mock only trusts the pid a client sends when it is non-zero;
+         * start from a clean TLS so both clients look like pid 0. */
+        std::memset(armGetTls(), 0, mock::TlsMessageBufferSize);
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_initialize()));
+
+        std::vector<u8> refInstall, refUninstall, refAck;
+        std::vector<u8> ourInstall, ourUninstall, ourAck;
+
+        /* Capture the last request for a given TIPC command id. The reference
+         * client sends a control request of its own inside serviceCreate(), so
+         * "last request" is not necessarily the one we want. */
+        auto capture = [](u32 command, std::vector<u8> &out) {
+            u8 buffer[mock::TlsMessageBufferSize];
+            size_t size = 0;
+            if (!mock::K().FindLastRequest(command + 16 /* TIPC */, buffer, sizeof(buffer), &size)) {
+                out.clear();
+                return;
+            }
+            out.assign(buffer, buffer + size);
+        };
+        auto reset_tls = []() { std::memset(armGetTls(), 0, mock::TlsMessageBufferSize); };
+
+        /* --- InstallMitm (65000) --- */
+        reset_tls();
+        TipcService forward_session{};
+        CHECK(R_SUCCEEDED(smAtmosphereOpenSession(&forward_session)));
+
+        reset_tls();
+        Handle ref_port = 0, ref_query = 0;
+        CHECK(R_SUCCEEDED(smAtmosphereMitmInstall(&forward_session, &ref_port, &ref_query, smEncodeName("ldn:u"))));
+        capture(65000, refInstall);
+
+        reset_tls();
+        Handle our_port = 0, our_query = 0;
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_install(&our_port, &our_query, "ldn:u")));
+        capture(65000, ourInstall);
+
+        CHECK(refInstall.size() > 0);
+        CHECK_EQ(refInstall.size(), ourInstall.size());
+        CHECK(refInstall == ourInstall);
+
+        /* --- UninstallMitm (65001) --- */
+        reset_tls();
+        CHECK(R_SUCCEEDED(smAtmosphereMitmUninstall(smEncodeName("ldn:u"))));
+        capture(65001, refUninstall);
+
+        reset_tls();
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_uninstall("ldn:u")));
+        capture(65001, ourUninstall);
+
+        CHECK_EQ(refUninstall.size(), ourUninstall.size());
+        CHECK(refUninstall == ourUninstall);
+
+        /* --- AcknowledgeSession (65003) --- */
+        CHECK(R_SUCCEEDED(smAtmosphereMitmInitialize()));
+
+        reset_tls();
+        Service ref_service{};
+        u8 ref_info[0x20] = {};
+        CHECK(R_SUCCEEDED(smAtmosphereMitmAcknowledgeSession(&ref_service, ref_info, smEncodeName("ldn:u"))));
+        capture(65003, refAck);
+        smAtmosphereMitmExit();
+
+        reset_tls();
+        Handle our_forward = 0;
+        LdnMitmProcessInfo our_info{};
+        CHECK(R_SUCCEEDED(ldn_sm_mitm_acknowledge(&our_forward, &our_info, "ldn:u")));
+        capture(65003, ourAck);
+
+        CHECK_EQ(refAck.size(), ourAck.size());
+        CHECK(refAck == ourAck);
+
+        /* Both implementations must also decode the reply identically. */
+        CHECK(std::memcmp(ref_info, &our_info, sizeof(our_info)) == 0);
+        CHECK_EQ(our_info.process_id, 0x00000000CAFEBABEull);
+        CHECK(our_forward != 0);
+        CHECK(ref_service.session != 0);
+
+        smAtmosphereCloseSession(&forward_session);
+        ldn_sm_mitm_finalize();
+    }
+    EndCase();
+}
+
 } // namespace
 
 int main() {
@@ -693,6 +871,8 @@ int main() {
     TestSessionClose();
     TestMitmFullChain();
     TestLdnServices();
+    TestAcceptLoop();
+    TestSmClientParity();
 
     std::printf("\n%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

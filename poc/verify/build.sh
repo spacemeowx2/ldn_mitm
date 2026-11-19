@@ -3,11 +3,15 @@
 # Host-side verification build (Linux/macOS) -- the counterpart of build.ps1.
 #
 # It compiles:
-#   - tests/main.cpp          : test cases, written as a *client* using real libnx
-#   - src/ipc_server.cpp      : our libnx-only CMIF server (the code under test)
-#   - src/sm_mitm.c           : our libnx-only sm mitm client (code under test)
-#   - harness/mock_kernel.cpp : simulated kernel (sessions, ports, TLS)
-#   - harness/mock_sm.cpp     : simulated sm (TIPC wire format)
+#   - tests/main.cpp            : test cases, written as a *client* using real libnx
+#   - src/ipc_server.cpp        : our libnx-only CMIF server (the code under test)
+#   - src/sm_mitm.c             : our libnx-only sm mitm client (code under test)
+#   - src/ldn_services.cpp      : the ldn service objects (code under test)
+#   - harness/mock_kernel.cpp   : simulated kernel (sessions, ports, TLS, threads)
+#   - harness/mock_sm.cpp       : simulated sm (TIPC wire format)
+#   - harness/atmosphere_ref/sm/sm_ams.os.horizon.c
+#                               : pinned Atmosphere reference client, compiled as
+#                                 C, used for a byte-for-byte parity test
 #
 # against a mirrored copy of libnx's headers in which only switch/arm/tls.h and
 # BITL() are patched (both explained in build.ps1).
@@ -24,6 +28,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 poc_root="$(dirname "$here")"
 include_dir="$here/harness/libnx_include"
 libnx="${LIBNX:-$HOME/project/libnx/nx/include}"
+cxx="${CXX:-g++}"
+cc="${CC:-gcc}"
 
 if [ "${SYNC:-1}" != "0" ]; then
     if [ ! -f "$libnx/switch.h" ]; then
@@ -58,13 +64,28 @@ EOF
     echo "synced libnx headers -> $include_dir"
 fi
 
-cxx="${CXX:-g++}"
+ref_dir="$here/harness/atmosphere_ref"
+ref_src="$ref_dir/sm/sm_ams.os.horizon.c"
+ref_obj="$include_dir/atmosphere_ref_sm.o"
 
-"$cxx" -std=gnu++17 -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers \
-    -I "$include_dir" \
-    -I "$here/harness/hostshim" \
-    -I "$poc_root/src" \
-    -I "$here/harness" \
+common_includes=(
+    -I "$include_dir"
+    -I "$here/harness/hostshim"
+    -I "$ref_dir"
+    -I "$ref_dir/sm"
+    -I "$poc_root/src"
+    -I "$here/harness"
+)
+
+warnings=(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
+
+# The Atmosphere reference is C: it uses _Static_assert and implicit void*
+# conversions, so it is built with the C compiler.
+"$cc" -std=gnu11 -O1 -g -DATMOSPHERE_OS_HORIZON "${warnings[@]}" \
+    "${common_includes[@]}" -c "$ref_src" -o "$ref_obj"
+
+"$cxx" -std=gnu++17 -O1 -g -DATMOSPHERE_OS_HORIZON "${warnings[@]}" \
+    "${common_includes[@]}" \
     "$here/harness/mock_kernel.cpp" \
     "$here/harness/mock_sm.cpp" \
     "$here/harness/libnx_host_runtime.cpp" \
@@ -75,6 +96,7 @@ cxx="${CXX:-g++}"
     "$poc_root/src/ldn_types.cpp" \
     "$poc_root/src/ldn_services.cpp" \
     "$here/tests/main.cpp" \
+    "$ref_obj" \
     -o "$here/ipc_tests"
 
 "$here/ipc_tests"

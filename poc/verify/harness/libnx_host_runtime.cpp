@@ -52,4 +52,57 @@ Result nifmGetCurrentIpConfigInfo(u32 *current_addr, u32 *subnet_mask, u32 *gate
     return 0;
 }
 
+/* MinGW's <thread> implementation references ::nanosleep. The tests synchronise
+ * with condition variables, so sleeping can be a no-op here. (Including
+ * <windows.h> would collide with the arm_acle shim, hence no Sleep().) */
+int nanosleep(const struct timespec *req, struct timespec *rem) {
+    (void)req;
+    (void)rem;
+    return 0;
+}
+
+
+/* --- kernel/mutex.h ------------------------------------------------------ */
+/* libnx implements these in C over svcWaitSynchronization; the mock only needs
+ * mutual exclusion between test threads, so a recursive mutex stands in (it
+ * also cannot deadlock if the same lock is taken twice). */
+#include <mutex>
+
+namespace {
+std::recursive_mutex g_host_mutex;
+}
+
+void mutexLock(Mutex *m) {
+    (void)m;
+    g_host_mutex.lock();
+}
+
+bool mutexTryLock(Mutex *m) {
+    (void)m;
+    return g_host_mutex.try_lock();
+}
+
+void mutexUnlock(Mutex *m) {
+    (void)m;
+    g_host_mutex.unlock();
+}
+
+/* --- services/sm.h ------------------------------------------------------- */
+/* The reference sm client reaches the global sm session for the commands that
+ * are not per-thread (Uninstall, HasMitm, ...). Point it at the mock sm. */
+static TipcService g_mock_sm_session;
+static bool g_mock_sm_ready;
+
+TipcService *smGetServiceSessionTipc(void) {
+    if (!g_mock_sm_ready) {
+        Handle handle = 0;
+        if (R_SUCCEEDED(svcConnectToNamedPort(&handle, "sm:"))) {
+            tipcCreate(&g_mock_sm_session, handle);
+            if (R_SUCCEEDED(tipcDispatch(&g_mock_sm_session, 0, .in_send_pid = true))) {
+                g_mock_sm_ready = true;
+            }
+        }
+    }
+    return &g_mock_sm_session;
+}
 } // extern "C"

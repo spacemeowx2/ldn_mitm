@@ -18,6 +18,10 @@ namespace mock {
 using RealServiceFactory = std::function<Handle()>;
 
 /* Installs the "sm:" named port and the mitm bookkeeping. */
+/* Overrides the identity sm reports in AcknowledgeSession. */
+void SetSmClientPid(u64 pid);
+void SetSmClientProgramId(u64 program_id);
+
 void InstallMockSm(RealServiceFactory factory);
 
 /* Handle sm uses to query ShouldMitm() on the mitm (client side of the session

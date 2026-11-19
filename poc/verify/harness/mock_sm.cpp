@@ -30,6 +30,10 @@ struct MockSmState {
 
 MockSmState g_sm;
 
+void SetSmClientPid(u64 pid) { g_sm.client_pid = pid; }
+
+void SetSmClientProgramId(u64 program_id) { g_sm.client_program_id = program_id; }
+
 void WriteResponse(Result rc, const void *payload, u32 size, const Handle *handles, u32 num_handles) {
     const u32 num_words = (sizeof(u32) + size + sizeof(u32) - 1) / sizeof(u32);
     const HipcRequest response = hipcMakeRequestInline(armGetTls(),
@@ -58,12 +62,10 @@ Result SmServerProcess(Handle server_handle) {
 
     switch (command) {
         case SmCommand_Initialize: {
-            /* cmd 0 normally carries the client pid. libnx's request builder
-             * leaves the pid field zeroed on the host, so only trust it when
-             * it is actually populated. */
-            if (request.meta.send_pid && request.pid != 0) {
-                g_sm.client_pid = request.pid;
-            }
+            /* On hardware the *kernel* fills in the sender pid; libnx never
+             * writes it, so whatever bytes sit at that offset are meaningless
+             * (they are often part of the service name). Keep the canned
+             * identity; tests use SetSmClientPid() when they need another. */
             WriteResponse(0, nullptr, 0, nullptr, 0);
             return 0;
         }

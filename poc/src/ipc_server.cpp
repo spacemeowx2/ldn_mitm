@@ -560,21 +560,34 @@ void IpcServer::Run() {
     if (m_port == 0) {
         return;
     }
-    for (;;) {
+
+    Handle handles[MaxSessions + 1] = {};
+
+    while (!m_stop) {
+        /* Wait on the port and every session we serve, like the original
+         * os::MultiWait over port + sessions. */
+        size_t count = 0;
+        handles[count++] = m_port;
+        for (auto &session : m_sessions) {
+            if (session.handle != 0) {
+                handles[count++] = session.handle;
+            }
+        }
+
         s32 index = 0;
-        Handle handle = m_port;
-        const Result rc = svcReplyAndReceive(&index, &handle, 1, 0, UINT64_MAX);
-        if (R_FAILED(rc)) {
+        const Result rc = svcReplyAndReceive(&index, handles, static_cast<s32>(count), 0, UINT64_MAX);
+        if (R_FAILED(rc) || index < 0) {
             continue;
         }
 
-        if (handle == m_port) {
+        const Handle ready = handles[index];
+        if (ready == m_port) {
             this->AcceptMitmSession();
             continue;
         }
 
-        this->ProcessSession(handle);
-        svcReplyAndReceive(&index, nullptr, 0, handle, 0);
+        this->ProcessSession(ready);
+        svcReplyAndReceive(&index, nullptr, 0, ready, 0);
     }
 }
 
