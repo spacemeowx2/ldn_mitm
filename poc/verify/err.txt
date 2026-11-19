@@ -1,0 +1,92 @@
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] svcCreateSession server=0x1003 client=0x1002
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] create pair 'real_ldn' client=0x1000 server=0x1001
+[mock] handler installed on 'real_ldn' server=0x1001
+[mock] create pair 'test' client=0x1002 server=0x1003
+[mock] handler installed on 'test' server=0x1003
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] create pair 'sm' client=0x1000 server=0x1001
+[mock] handler installed on 'sm' server=0x1001
+[mock] sm: command 0
+[mock] create pair 'sm' client=0x1002 server=0x1003
+[mock] handler installed on 'sm' server=0x1003
+[mock] sm: command 0
+[mock] sm: command 65000
+[mock] create port 'ldn:u' handle=0x4000
+[mock] mitm installed for 'ldn:u' -> port 0x4000
+[mock] create pair 'mitm-query' client=0x1004 server=0x1005
+[mock] create pair 'real-ldn' client=0x1006 server=0x1007
+[mock] handler installed on 'real-ldn' server=0x1007
+[mock] create pair 'ldn:u' client=0x1008 server=0x1009
+[mock] sm: command 65003
+[mock] svcCreateSession server=0x100b client=0x100a
+[mock] sm: command 65001
+[mock] create pair 'real-ldn' client=0x100c server=0x100d
+[mock] handler installed on 'real-ldn' server=0x100d
+[mock] sm: command 4
+[mock] sm: command 4294967295
+[mock] sm: command 4
+[mock] sm: command 4294967295
+[mock] create pair 'test' client=0x1000 server=0x1001
+[mock] handler installed on 'test' server=0x1001
+[mock] svcCreateSession server=0x1003 client=0x1002
+[mock] svcCreateSession server=0x1005 client=0x1004
+[mock] svcCreateSession server=0x1007 client=0x1006
+[mock] create event write=0x9000 read=0x9001
+[mock] create pair 'sm' client=0x1000 server=0x1001
+[mock] handler installed on 'sm' server=0x1001
+[mock] sm: command 0
+[mock] create pair 'sm' client=0x1002 server=0x1003
+[mock] handler installed on 'sm' server=0x1003
+[mock] sm: command 0
+[mock] sm: command 65000
+[mock] create port 'ldn:u' handle=0x4000
+[mock] mitm installed for 'ldn:u' -> port 0x4000
+[mock] create pair 'mitm-query' client=0x1004 server=0x1005
+[mock] create pair 'real-ldn' client=0x1006 server=0x1007
+[mock] handler installed on 'real-ldn' server=0x1007
+[mock] create pair 'ldn:u' client=0x1008 server=0x1009
+[mock] sm: command 65003
+[mock] svcCreateSession server=0x100b client=0x100a
+[mock] sm: command 4
+[mock] sm: command 4294967295
+[mock] sm: command 4
+[mock] sm: command 4294967295
+[mock] create pair 'sm' client=0x1000 server=0x1001
+[mock] handler installed on 'sm' server=0x1001
+[mock] sm: command 0
+[mock] create pair 'sm' client=0x1002 server=0x1003
+[mock] handler installed on 'sm' server=0x1003
+[mock] sm: command 0
+[mock] create pair 'sm' client=0x1004 server=0x1005
+[mock] handler installed on 'sm' server=0x1005
+[mock] sm: command 0
+[mock] sm: command 65000
+[mock] create port 'ldn:u' handle=0x4000
+[mock] mitm installed for 'ldn:u' -> port 0x4000
+[mock] create pair 'mitm-query' client=0x1006 server=0x1007
+[mock] create pair 'real-ldn' client=0x1008 server=0x1009
+[mock] sm: command 65000
+[mock] create port 'ldn:u' handle=0x4001
+[mock] mitm installed for 'ldn:u' -> port 0x4001
+[mock] create pair 'mitm-query' client=0x100a server=0x100b
+[mock] create pair 'real-ldn' client=0x100c server=0x100d
+[mock] create pair 'sm' client=0x100e server=0x100f
+[mock] handler installed on 'sm' server=0x100f
+[mock] sm: command 0
+[mock] sm: command 65001
+[mock] sm: command 65001
+[mock] create pair 'sm' client=0x1010 server=0x1011
+[mock] handler installed on 'sm' server=0x1011
+[mock] sm: command 0
+[mock] sm: command 65003

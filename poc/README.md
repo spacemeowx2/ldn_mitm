@@ -21,6 +21,7 @@
 | host 端端到端测试 | ✅ **155 checks, 0 failures**（Linux + Windows） |
 | 真实 accept 循环（多线程） | ✅ Run() 跑在独立线程上，客户端走完整环路 |
 | 与 Atmosphere 的字节级差分 | ✅ sm mitm 客户端 wire 格式逐字节一致 |
+| 结构化 fuzz（变异 + 不变量） | ✅ 60k 次 × 3 种子无失败，期间抓到 1 个真 bug |
 | aarch64 交叉编译（全部源文件） | ✅ `verify/cross_check.sh` |
 | aarch64 **链接出真实 ELF** | ✅ `make` → `build/ldn_mitm_poc.elf`（text 209 KB） |
 | 打包可部署的 `exefs.nsp` | ✅ `make nsp` → 145 KB（原实现 169 KB） |
@@ -147,6 +148,30 @@ acknowledge，把发出的 TIPC 报文逐字节比较：命令号、参数排布
 ```
 
 上游确实改了 wire 格式时这个测试会失败——这是设计意图，不是噪音。
+### Fuzz：把解析器泡在恶意输入里
+
+`verify/fuzz/` 是一个结构化 fuzzer，针对手写的 HIPC/CMIF 解析与回复构造：
+
+- 输入不是随机字节，而是**结构上合法、语义上恶意**的请求：真实命令号（85%）或随机值、
+  任意数量的 server pointer / buffer / 句柄、尺寸与对齐故意不匹配、载荷长度与命令期望不符
+- 每个输入后断言：
+  1. 派发一定返回（不挂死、不崩溃，ASan + UBSan 监督）
+  2. 回复必须是合法的 HIPC 响应头
+  3. 回复声明的数据长度不能超出消息缓冲
+  4. **out buffer 的写入不得越出声明的 [base, base+size)**
+  5. 失败的命令必须回非零 Result，不能"成功但什么都没写"
+
+缓冲地址都落在 1 TiB 以下（HIPC server pointer 只有 ~40 位地址空间），并且放在 ASan 能
+监控的低地址区，否则越界访问会被报成 unknown-crash 而不是被检查。
+
+```sh
+cd poc/verify && ./fuzz.sh 20000 1     # 次数, 种子
+```
+
+**它抓到的问题**：`Request::type` 原本是 `u8`，而 TIPC 请求的 type 是 `command + 16`。
+命令号低字节为 2 时（如 61170 → 0xEF02 → `u8` = 2）会被当成 CMIF 的 close，**服务器会删掉
+会话对象**，之后该会话的所有请求都不再收到回复——真机上就是客户端永久挂起。
+修复是把 type 保持 16 位。
 ## 目录
 
 ```
@@ -164,6 +189,7 @@ poc/
     build.sh / build.ps1  # host 端到端测试
     cross_check.sh        # aarch64 全量交叉编译
     sync_atmosphere_ref.sh # 刷新固定版本的 Atmosphere 参考实现
+    fuzz.sh / fuzz/       # 结构化 fuzz（ASan+UBSan）
     harness/
       mock_kernel.*       # 模拟内核：session/port/TLS/handle/mitm 路由/低地址分配
       mock_sm.*           # 模拟 sm：TIPC 线格式

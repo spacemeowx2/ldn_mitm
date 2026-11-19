@@ -21,7 +21,7 @@ constexpr u64 OldProcessIdMask   = 0x0000FFFFFFFFFFFFull;
 void ParseCmif(Request *req, bool session_is_domain) {
     u8 *const base = static_cast<u8 *>(req->base);
     req->hipc = hipcParseRequest(base);
-    req->type = static_cast<u8>(req->hipc.meta.type);
+    req->type = req->hipc.meta.type;
 
     u8 *const start = static_cast<u8 *>(cmifGetAlignedDataStart(req->hipc.data.data_words, base));
 

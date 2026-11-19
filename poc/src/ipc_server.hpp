@@ -51,7 +51,10 @@ struct Request {
     Handle session = 0;
     HipcParsedRequest hipc{};
 
-    u8   type         = 0;   /* CmifCommandType                                   */
+    /* Kept at full width: a TIPC request carries command + 16, and
+     * truncating it to u8 would alias e.g. command 61170 to 2, which is the
+     * CMIF close code -- a stray request would then destroy the session. */
+    u16  type         = 0;   /* CmifCommandType (CMIF) / command + 16 (TIPC)      */
     bool is_domain    = false;
     bool close_object = false; /* domain: request asks to destroy one object      */
     u32  object_id    = 0;   /* domain: which object in the session's domain      */
