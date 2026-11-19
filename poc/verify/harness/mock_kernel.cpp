@@ -2,7 +2,59 @@
 
 #include <cstdarg>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#endif
+
 namespace mock {
+
+#ifdef _WIN32
+void *AllocLow(size_t size, size_t alignment) {
+    static uintptr_t s_next = 0x0000000100000000ull;
+    (void)alignment;
+    const size_t rounded = (size + 0xFFF) & ~static_cast<size_t>(0xFFF);
+    for (int attempt = 0; attempt < 4; ++attempt) {
+        void *pointer = VirtualAlloc(reinterpret_cast<void *>(s_next), rounded, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        if (pointer != nullptr) {
+            s_next += rounded + 0x10000;
+            return pointer;
+        }
+        s_next <<= 1;
+    }
+    return nullptr;
+}
+
+void FreeLow(void *pointer, size_t size) {
+    (void)size;
+    if (pointer != nullptr) {
+        VirtualFree(pointer, 0, MEM_RELEASE);
+    }
+}
+#else
+void *AllocLow(size_t size, size_t alignment) {
+    static uintptr_t s_next = 0x0000000100000000ull;
+    (void)alignment;
+    const size_t rounded = (size + 0xFFF) & ~static_cast<size_t>(0xFFF);
+    for (int attempt = 0; attempt < 4; ++attempt) {
+        void *wanted = reinterpret_cast<void *>(s_next);
+        void *pointer = mmap(wanted, rounded, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        if (pointer != MAP_FAILED) {
+            s_next += rounded + 0x10000;
+            return pointer;
+        }
+        s_next <<= 1;
+    }
+    return nullptr;
+}
+
+void FreeLow(void *pointer, size_t size) {
+    if (pointer != nullptr) {
+        munmap(pointer, (size + 0xFFF) & ~static_cast<size_t>(0xFFF));
+    }
+}
+#endif
 
 Kernel &Kernel::Get() {
     static Kernel s_kernel;
@@ -33,8 +85,7 @@ void Kernel::Fail(const char *what) {
 namespace mock {
 
 
-void Kernel::Reset() {
-    for (auto *p : m_pairs) {
+void Kernel::Reset() {    for (auto *p : m_pairs) {
         delete p;
     }
     for (auto *p : m_port_objects) {
@@ -207,7 +258,28 @@ Result Kernel::CreateSession(Handle *server, Handle *client) {
     return 0;
 }
 
+Handle Kernel::CreateEventPair() {
+    const Handle write = m_next_event++;
+    const Handle read = m_next_event++;
+    m_events[write] = 0;
+    m_events[read] = 0;
+    Log("create event write=%#x read=%#x", write, read);
+    return write;
+}
+
+bool Kernel::IsEventHandle(Handle h) const {
+    return m_events.find(h) != m_events.end();
+}
+
+int Kernel::SignalCount(Handle h) const {
+    auto it = m_events.find(h);
+    return it == m_events.end() ? -1 : it->second;
+}
+
 Result Kernel::CloseHandle(Handle h) {
+    if (m_events.erase(h) != 0) {
+        return 0;
+    }
     if (auto it = m_pairs_by_client.find(h); it != m_pairs_by_client.end()) {
         m_pairs_by_client.erase(it);
         return 0;
@@ -310,4 +382,24 @@ u64 svcGetSystemTick(void) {
     return 0;
 }
 
+Result svcCreateEvent(Handle *server_handle, Handle *client_handle) {
+    const Handle write = mock::K().CreateEventPair();
+    /* CreateEventPair hands out write then read; libnx expects the write handle
+     * first (server_handle) and the read handle second (client_handle). */
+    *server_handle = write;
+    *client_handle = write + 1;
+    return 0;
+}
+
+Result svcSignalEvent(Handle handle) {
+    (void)handle;
+    return 0;
+}
+
+Result svcClearEvent(Handle handle) {
+    (void)handle;
+    return 0;
+}
+
 } // extern "C"
+

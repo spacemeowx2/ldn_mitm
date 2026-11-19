@@ -67,8 +67,13 @@ cxx="${CXX:-g++}"
     -I "$here/harness" \
     "$here/harness/mock_kernel.cpp" \
     "$here/harness/mock_sm.cpp" \
+    "$here/harness/libnx_host_runtime.cpp" \
+    "$here/harness/fake_lan_discovery.cpp" \
     "$poc_root/src/ipc_server.cpp" \
     "$poc_root/src/sm_mitm.c" \
+    "$poc_root/src/debug.cpp" \
+    "$poc_root/src/ldn_types.cpp" \
+    "$poc_root/src/ldn_services.cpp" \
     "$here/tests/main.cpp" \
     -o "$here/ipc_tests"
 

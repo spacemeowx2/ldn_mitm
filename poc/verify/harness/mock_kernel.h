@@ -108,6 +108,11 @@ public:
     Result CreateSession(Handle *server, Handle *client);
     Result CloseHandle(Handle h);
 
+    /* Kernel event objects (fake handles; the mock only signals them). */
+    Handle CreateEventPair();
+    bool IsEventHandle(Handle h) const;
+    int SignalCount(Handle h) const;
+
     u8 *Tls() { return m_tls; }
 
     /* --- diagnostics ----------------------------------------------------- */
@@ -127,6 +132,9 @@ private:
     std::vector<SessionPair *> m_pairs;
     std::vector<PortObject *> m_port_objects;
 
+    std::unordered_map<Handle, int> m_events;
+    Handle m_next_event = 0x9000;
+
     Handle m_next_session = SessionBase;
     Handle m_next_port = PortBase;
 
@@ -138,6 +146,17 @@ private:
 
 /* Convenience accessor. */
 inline Kernel &K() { return Kernel::Get(); }
+
+/* ------------------------------------------------------------------------- */
+/* Low-address buffers                                                       */
+/* ------------------------------------------------------------------------- */
+/* HIPC encodes "server pointers" (send statics / recv list) in ~40 bits, which
+ * is plenty on the device (all user addresses fit) but truncates ordinary
+ * x86_64 stack/heap pointers (0x7ffd..., 0x5555...). Any test buffer that is
+ * passed as SfBufferAttr_HipcAutoSelect or _HipcPointer must therefore live
+ * below 1 TiB, which is what these helpers provide. */
+void *AllocLow(size_t size, size_t alignment = 0x1000);
+void FreeLow(void *pointer, size_t size);
 
 } // namespace mock
 
@@ -163,6 +182,11 @@ Result svcGetInfo(u64 *out, u32 id0, Handle handle, u64 id1);
 Result svcSetHeapSize(void **out_addr, u64 size);
 void svcSleepThread(s64 ns);
 u64 svcGetSystemTick(void);
+
+/* Events (kernel objects the mock only needs to hand out and signal). */
+Result svcCreateEvent(Handle *server_handle, Handle *client_handle);
+Result svcSignalEvent(Handle handle);
+Result svcClearEvent(Handle handle);
 
 #ifdef __cplusplus
 }

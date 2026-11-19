@@ -81,6 +81,76 @@ void ParseCmif(Request *req, bool session_is_domain) {
 } // namespace
 
 /* ------------------------------------------------------------------------- */
+/* Request: HIPC buffers                                                     */
+/* ------------------------------------------------------------------------- */
+const u8 *Request::InPointer(u32 index, size_t *out_size) const {
+    if (index >= this->hipc.meta.num_send_statics || this->hipc.data.send_statics == nullptr) {
+        *out_size = 0;
+        return nullptr;
+    }
+    const HipcStaticDescriptor *desc = &this->hipc.data.send_statics[index];
+    *out_size = hipcGetStaticSize(desc);
+    return static_cast<const u8 *>(hipcGetStaticAddress(desc));
+}
+
+const u8 *Request::InBuffer(u32 index, size_t *out_size) const {
+    if (index >= this->hipc.meta.num_send_buffers || this->hipc.data.send_buffers == nullptr) {
+        *out_size = 0;
+        return nullptr;
+    }
+    const HipcBufferDescriptor *desc = &this->hipc.data.send_buffers[index];
+    *out_size = hipcGetBufferSize(desc);
+    return static_cast<const u8 *>(hipcGetBufferAddress(desc));
+}
+
+const u8 *Request::InAutoSelect(size_t *out_size) const {
+    size_t size = 0;
+    const u8 *pointer = this->InPointer(0, &size);
+    if (pointer != nullptr && size != 0) {
+        *out_size = size;
+        return pointer;
+    }
+    return this->InBuffer(0, out_size);
+}
+
+u8 *Request::OutPointer(u32 index, size_t *out_capacity) const {
+    if (index >= this->hipc.meta.num_recv_statics || this->hipc.data.recv_list == nullptr) {
+        *out_capacity = 0;
+        return nullptr;
+    }
+    const HipcRecvListEntry *entry = &this->hipc.data.recv_list[index];
+    *out_capacity = entry->size;
+    return reinterpret_cast<u8 *>(entry->address_low | (static_cast<uintptr_t>(entry->address_high) << 32));
+}
+
+u8 *Request::OutBuffer(u32 index, size_t *out_capacity) const {
+    if (index >= this->hipc.meta.num_recv_buffers || this->hipc.data.recv_buffers == nullptr) {
+        *out_capacity = 0;
+        return nullptr;
+    }
+    const HipcBufferDescriptor *desc = &this->hipc.data.recv_buffers[index];
+    *out_capacity = hipcGetBufferSize(desc);
+    return static_cast<u8 *>(hipcGetBufferAddress(desc));
+}
+
+u8 *Request::OutAutoSelect(size_t *out_capacity) const {
+    size_t capacity = 0;
+    u8 *pointer = this->OutPointer(0, &capacity);
+    if (pointer != nullptr && capacity != 0) {
+        *out_capacity = capacity;
+        return pointer;
+    }
+    return this->OutBuffer(0, out_capacity);
+}
+
+Handle Request::InHandle(u32 index) const {
+    if (index >= this->hipc.meta.num_copy_handles || this->hipc.data.copy_handles == nullptr) {
+        return 0;
+    }
+    return this->hipc.data.copy_handles[index];
+}
+
+/* ------------------------------------------------------------------------- */
 /* Reply                                                                     */
 /* ------------------------------------------------------------------------- */
 void *Reply::Alloc(size_t size, size_t alignment) {
@@ -117,19 +187,36 @@ void Reply::AddMoveHandle(Handle handle) {
     }
 }
 
+void Reply::AddCopyHandle(Handle handle) {
+    if (m_num_copy_handles < MaxOutHandles) {
+        m_copy_handles[m_num_copy_handles++] = handle;
+    }
+}
+
+void Reply::AddOutPointer(const void *address, size_t size) {
+    if (m_num_out_pointers < MaxOutObjects) {
+        m_out_pointers[m_num_out_pointers] = address;
+        m_out_pointer_sizes[m_num_out_pointers] = size;
+        ++m_num_out_pointers;
+    }
+}
+
 Result Reply::Finish(Result rc) {
     u8 *const base = static_cast<u8 *>(m_req.base);
     const bool domain = m_req.is_domain;
 
     const size_t header_bytes = sizeof(CmifOutHeader) + (domain ? sizeof(CmifDomainOutHeader) : 0);
     const size_t object_bytes = domain ? m_num_objects * sizeof(u32) : 0;
-    const size_t raw_size     = header_bytes + m_used + object_bytes;
+    const size_t table_bytes  = m_num_out_pointers * sizeof(u16);
+    const size_t raw_size     = header_bytes + m_used + object_bytes + table_bytes;
     const u32 num_data_words  = static_cast<u32>((AlignUp(raw_size, sizeof(u32)) + 0x10) / sizeof(u32));
     const size_t num_move     = m_num_move_handles + (domain ? 0 : m_num_objects);
 
     const HipcRequest response = hipcMakeRequestInline(base,
         .type             = CmifCommandType_Invalid, /* this is a response */
+        .num_send_statics = static_cast<u32>(m_num_out_pointers),
         .num_data_words   = num_data_words,
+        .num_copy_handles = static_cast<u32>(m_num_copy_handles),
         .num_move_handles = static_cast<u32>(num_move));
 
     u8 *data = static_cast<u8 *>(cmifGetAlignedDataStart(response.data_words, base));
@@ -152,6 +239,15 @@ Result Reply::Finish(Result rc) {
 
     if (domain && m_num_objects > 0) {
         std::memcpy(cursor, m_object_ids, object_bytes);
+        cursor += object_bytes;
+    }
+
+    if (m_num_out_pointers > 0) {
+        auto *sizes = reinterpret_cast<u16 *>(cursor);
+        for (size_t i = 0; i < m_num_out_pointers; ++i) {
+            sizes[i] = static_cast<u16>(m_out_pointer_sizes[i]);
+            response.send_statics[i] = hipcMakeSendStatic(m_out_pointers[i], m_out_pointer_sizes[i], static_cast<u8>(i));
+        }
     }
 
     out_header->magic   = CmifOutHeaderMagic;
@@ -167,6 +263,9 @@ Result Reply::Finish(Result rc) {
     }
     for (size_t i = 0; i < m_num_move_handles; ++i) {
         response.move_handles[index++] = m_move_handles[i];
+    }
+    for (size_t i = 0; i < m_num_copy_handles; ++i) {
+        response.copy_handles[i] = m_copy_handles[i];
     }
 
     return 0;

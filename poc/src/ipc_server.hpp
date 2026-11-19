@@ -75,6 +75,22 @@ struct Request {
     const T *In() const { return reinterpret_cast<const T *>(this->in_data); }
 
     bool InSizeOk(size_t size) const { return this->in_size >= size; }
+
+    /* --- HIPC buffers --------------------------------------------------- */
+    /* Server pointers (recv list / send statics) are what an "auto select"
+     * buffer resolves to when it fits the pointer buffer; otherwise the client
+     * sends a map-alias buffer descriptor. These helpers hide that. */
+    const u8 *InPointer(u32 index, size_t *out_size) const;
+    const u8 *InBuffer(u32 index, size_t *out_size) const;
+    const u8 *InAutoSelect(size_t *out_size) const;
+
+    u8 *OutPointer(u32 index, size_t *out_capacity) const;
+    u8 *OutBuffer(u32 index, size_t *out_capacity) const;
+    u8 *OutAutoSelect(size_t *out_capacity) const;
+
+    /* Handles attached to the request (copy handles). */
+    Handle InHandle(u32 index) const;
+    u32 InHandleCount() const { return this->hipc.meta.num_copy_handles; }
 };
 
 /* ------------------------------------------------------------------------- */
@@ -97,6 +113,13 @@ public:
     /* Return a handle (the session must already be registered). */
     void AddMoveHandle(Handle handle);
 
+    /* Return a handle by copying it (the caller keeps its own). */
+    void AddCopyHandle(Handle handle);
+
+    /* Declare one out server-pointer: the reply carries a send-static
+     * descriptor plus a size-table entry with the number of bytes written. */
+    void AddOutPointer(const void *address, size_t size);
+
     Result Finish(Result rc);
 
 private:
@@ -112,7 +135,13 @@ private:
     size_t m_num_objects = 0;
 
     Handle m_move_handles[MaxOutHandles] = {};
+    Handle m_copy_handles[MaxOutHandles] = {};
     size_t m_num_move_handles = 0;
+    size_t m_num_copy_handles = 0;
+
+    const void *m_out_pointers[MaxOutObjects] = {};
+    size_t m_out_pointer_sizes[MaxOutObjects] = {};
+    size_t m_num_out_pointers = 0;
 };
 
 /* ------------------------------------------------------------------------- */

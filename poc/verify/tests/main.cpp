@@ -18,6 +18,8 @@
 #include "mock_kernel.h"
 #include "mock_sm.h"
 #include "sm_mitm.h"
+#include "fake_lan_discovery.h"
+#include "ldn_services.hpp"
 
 namespace {
 
@@ -467,6 +469,214 @@ void TestMitmFullChain() {
     EndCase();
 }
 
+/* ------------------------------------------------------------------------- */
+/* ldn services: every command, driven over the wire                         */
+/* ------------------------------------------------------------------------- */
+void TestLdnServices() {
+    StartCase("ldn services: config / monitor / communication commands");
+    {
+        using namespace ams::mitm::ldn;
+
+        FakeLan().Reset();
+        FakeLan().networkInfo.networkId.sessionId.high = 0x1122334455667788ull;
+        FakeLan().networkInfo.networkId.sessionId.low  = 0x99AABBCCDDEEFF00ull;
+
+        Fixture fx;
+        const Handle client = fx.Connect(new ILdnMitMService(0, FakeLanImpl()));
+        Service s{};
+        serviceCreate(&s, client);
+
+        /* --- mitm level -------------------------------------------------- */
+        Service comm{};
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 0, .out_num_objects = 1, .out_objects = &comm)));
+        CHECK(serviceIsActive(&comm));
+
+        Service monitor{};
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 1, .out_num_objects = 1, .out_objects = &monitor)));
+        CHECK(serviceIsActive(&monitor));
+
+        Service config{};
+        CHECK(R_SUCCEEDED(serviceDispatch(&s, 65000, .out_num_objects = 1, .out_objects = &config)));
+        CHECK(serviceIsActive(&config));
+
+        /* --- config ------------------------------------------------------ */
+        LdnMitmVersion version{};
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&config, 65001, version)));
+        CHECK(std::strncmp(version.raw, "1.25.1-libnx-poc", sizeof(version.raw)) == 0);
+
+        u32 value = 0;
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&config, 65004, value)));
+        CHECK_EQ(value, 1u);
+
+        const u32 disable = 0;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&config, 65005, disable)));
+        CHECK(!ILdnConfigService::IsEnabled());
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&config, 65004, value)));
+        CHECK_EQ(value, 0u);
+
+        const u32 enable = 1;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&config, 65005, enable)));
+        CHECK(ILdnConfigService::IsEnabled());
+
+        const u32 loggingOn = 1;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&config, 65003, loggingOn)));
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&config, 65002, value)));
+        CHECK_EQ(value, 1u);
+        const u32 loggingOff = 0;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&config, 65003, loggingOff)));
+
+        /* --- client process monitor -------------------------------------- */
+        const u64 registerPid = 0x1000;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&monitor, 0, registerPid)));
+
+        /* --- communication: init/state ----------------------------------- */
+        const u64 clientPid = 0x2000;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&comm, 400, clientPid)));
+        CHECK_EQ(FakeLan().initializeCalls, 1);
+
+        u32 state = 0xFFFF;
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&comm, 0, state)));
+        CHECK_EQ(state, static_cast<u32>(CommState::None));
+
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 200)));   /* OpenAccessPoint */
+        CHECK_EQ(FakeLan().openAccessPointCalls, 1);
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&comm, 0, state)));
+        CHECK_EQ(state, static_cast<u32>(CommState::AccessPoint));
+
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 201)));   /* CloseAccessPoint */
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 300)));   /* OpenStation */
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 301)));   /* CloseStation */
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 204)));   /* DestroyNetwork */
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 304)));   /* Disconnect */
+        CHECK_EQ(FakeLan().closeAccessPointCalls, 1);
+        CHECK_EQ(FakeLan().openStationCalls, 1);
+        CHECK_EQ(FakeLan().closeStationCalls, 1);
+        CHECK_EQ(FakeLan().destroyNetworkCalls, 1);
+        CHECK_EQ(FakeLan().disconnectCalls, 1);
+
+        /* --- communication: ipv4 / disconnect reason ---------------------- */
+        struct { u32 address; u32 mask; } ip = {};
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&comm, 2, ip)));
+        /* ntohl(0xC0A8010A) == 0x0A01A8C0: the server swaps to host order. */
+        CHECK_EQ(ip.address, 0x0A01A8C0u);
+        CHECK_EQ(ip.mask, 0x00FFFFFFu);
+
+        u32 reason = 0xFFFF;
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&comm, 3, reason)));
+        CHECK_EQ(reason, static_cast<u32>(DisconnectReason::None));
+
+        /* --- communication: network info (LargeData -> out buffer) -------- */
+        NetworkInfo info{};
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 1,
+            .buffer_attrs = { SfBufferAttr_Out | SfBufferAttr_HipcMapAlias },
+            .buffers      = { { &info, sizeof(info) } })));
+        CHECK_EQ(info.networkId.sessionId.high, 0x1122334455667788ull);
+        CHECK_EQ(info.networkId.sessionId.low, 0x99AABBCCDDEEFF00ull);
+
+        /* --- communication: security parameter / network config ----------- */
+        SecurityParameter security{};
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&comm, 4, security)));
+        CHECK_EQ(security.sessionId.high, 0x1122334455667788ull);
+
+        NetworkConfig netConfig{};
+        CHECK(R_SUCCEEDED(serviceDispatchOut(&comm, 5, netConfig)));
+
+        /* --- communication: advertise data (auto-select in buffer) -------- */
+        u8 *advertise = static_cast<u8 *>(mock::AllocLow(0x40));
+        for (size_t i = 0; i < 0x40; ++i) {
+            advertise[i] = static_cast<u8>(i);
+        }
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 206,
+            .buffer_attrs = { SfBufferAttr_In | SfBufferAttr_HipcAutoSelect },
+            .buffers      = { { advertise, 0x40 } })));
+        CHECK_EQ(FakeLan().advertiseSize, 0x40u);
+        CHECK(std::memcmp(FakeLan().advertiseData, advertise, 0x40) == 0);
+
+        /* --- communication: scan, pointer-buffer path (small request) ----- */
+        FakeLan().scanCount = 2;
+        FakeLan().scanResults[0].networkId.sessionId.high = 0xAA;
+        FakeLan().scanResults[1].networkId.sessionId.high = 0xBB;
+
+        struct ScanIn {
+            u16 channel;
+            u8  pad[6];
+            ScanFilter filter;
+        } scanIn{};
+        scanIn.channel = 6;
+        scanIn.filter.flag = ScanFilterFlag_NetworkId;
+
+        u32 scanCount = 0;
+        auto *scanSmall = static_cast<ams::mitm::ldn::NetworkInfo *>(mock::AllocLow(sizeof(ams::mitm::ldn::NetworkInfo) * 2));
+        CHECK(R_SUCCEEDED(serviceDispatchInOut(&comm, 102, scanIn, scanCount,
+            .buffer_attrs = { SfBufferAttr_Out | SfBufferAttr_HipcAutoSelect },
+            .buffers      = { { scanSmall, sizeof(ams::mitm::ldn::NetworkInfo) * 2 } })));
+        CHECK_EQ(scanCount, 2u);
+        CHECK_EQ(scanSmall[0].networkId.sessionId.high, 0xAAull);
+        CHECK_EQ(scanSmall[1].networkId.sessionId.high, 0xBBull);
+
+        /* --- communication: scan, HIPC buffer path (too big for pointers) -- */
+        FakeLan().scanCount = 8;
+        for (int i = 0; i < 8; ++i) {
+            FakeLan().scanResults[i].networkId.sessionId.high = static_cast<u64>(0x100 + i);
+        }
+        auto *scanBig = static_cast<ams::mitm::ldn::NetworkInfo *>(mock::AllocLow(sizeof(ams::mitm::ldn::NetworkInfo) * 8));
+        CHECK(R_SUCCEEDED(serviceDispatchInOut(&comm, 102, scanIn, scanCount,
+            .buffer_attrs = { SfBufferAttr_Out | SfBufferAttr_HipcAutoSelect },
+            .buffers      = { { scanBig, sizeof(ams::mitm::ldn::NetworkInfo) * 8 } })));
+        CHECK_EQ(scanCount, 8u);
+        CHECK_EQ(scanBig[7].networkId.sessionId.high, 0x107ull);
+
+        /* --- communication: network info latest update (buffer + pointer) -- */
+        FakeLan().updatesWritten = 3;
+        NetworkInfo latest{};
+        auto *updates = static_cast<ams::mitm::ldn::NodeLatestUpdate *>(mock::AllocLow(sizeof(ams::mitm::ldn::NodeLatestUpdate) * 4));
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 101,
+            .buffer_attrs = {
+                SfBufferAttr_Out | SfBufferAttr_HipcMapAlias,
+                SfBufferAttr_Out | SfBufferAttr_HipcPointer,
+            },
+            .buffers = {
+                { &latest, sizeof(latest) },
+                { updates, sizeof(ams::mitm::ldn::NodeLatestUpdate) * 4 },
+            })));
+        CHECK_EQ(latest.networkId.sessionId.high, 0x1122334455667788ull);
+        CHECK_EQ(updates[0].stateChange, 0);
+        CHECK_EQ(updates[2].stateChange, 2);
+
+        /* --- communication: connect (inline data + LargeData in buffer) --- */
+        ConnectNetworkData connectData{};
+        connectData.localCommunicationVersion = 0x00010002; /* truncated to u16, as the original does */
+        std::strncpy(connectData.userConfig.userName, "player-one", sizeof(connectData.userConfig.userName) - 1);
+
+        NetworkInfo target{};
+        target.networkId.sessionId.high = 0xDEADBEEF;
+        CHECK(R_SUCCEEDED(serviceDispatchIn(&comm, 302, connectData,
+            .buffer_attrs = { SfBufferAttr_In | SfBufferAttr_HipcMapAlias },
+            .buffers      = { { &target, sizeof(target) } })));
+        CHECK_EQ(FakeLan().connectCalls, 1);
+        CHECK_EQ(FakeLan().lastConnectTarget.networkId.sessionId.high, 0xDEADBEEFull);
+        CHECK_EQ(FakeLan().lastConnectVersion, static_cast<u16>(0x00010002u));
+        CHECK(std::strncmp(FakeLan().lastConnectUser.userName, "player-one", sizeof(FakeLan().lastConnectUser.userName)) == 0);
+
+        /* --- communication: state change event (copy handle) -------------- */
+        Handle event = 0;
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 100,
+            .out_handle_attrs = { SfOutHandleAttr_HipcCopy },
+            .out_handles      = &event)));
+        CHECK(event != 0);
+
+        /* --- communication: finalize ------------------------------------- */
+        CHECK(R_SUCCEEDED(serviceDispatch(&comm, 401)));
+        CHECK_EQ(FakeLan().finalizeCalls, 1);
+
+        serviceClose(&config);
+        serviceClose(&monitor);
+        serviceClose(&comm);
+        serviceClose(&s);
+    }
+    EndCase();
+}
+
 } // namespace
 
 int main() {
@@ -482,6 +692,7 @@ int main() {
     TestForwardToSession();
     TestSessionClose();
     TestMitmFullChain();
+    TestLdnServices();
 
     std::printf("\n%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
